@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>TOROS - Teslimat Optimizasyonu</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; display: flex; height: 100vh; }
+
+  .panel {
+    width: 400px; background: #16213e; overflow-y: auto; padding: 20px;
+    border-right: 2px solid #0f3460; flex-shrink: 0;
+  }
+  .panel h1 { font-size: 20px; color: #e94560; margin-bottom: 15px; }
+  .panel h2 { font-size: 14px; color: #a0a0b0; margin: 15px 0 8px; }
+
+  .form-grup { margin-bottom: 10px; }
+  .form-grup label { display: block; font-size: 12px; color: #a0a0b0; margin-bottom: 3px; }
+  .form-grup input, .form-grup select {
+    width: 100%; padding: 8px; background: #0f3460; border: 1px solid #1a3a6e;
+    color: #eee; border-radius: 4px; font-size: 13px;
+  }
+  .form-grup input:focus { outline: none; border-color: #e94560; }
+
+  .depo-alan { background: #0f3460; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+  .depo-alan .form-grup { margin-bottom: 6px; }
+
+  .teslimat-listesi { margin-bottom: 15px; }
+  .teslimat-karti {
+    background: #0f3460; padding: 10px; border-radius: 6px; margin-bottom: 8px;
+    position: relative;
+  }
+  .teslimat-karti .sil-btn {
+    position: absolute; top: 6px; right: 8px; background: none; border: none;
+    color: #e94560; cursor: pointer; font-size: 16px;
+  }
+  .teslimat-karti .satir { display: flex; gap: 6px; margin-bottom: 4px; }
+  .teslimat-karti .satir input { flex: 1; }
+  .teslimat-karti .pencere-toggle {
+    font-size: 11px; color: #76b5c5; cursor: pointer; margin-top: 4px;
+  }
+  .teslimat-karti .pencere-alan { margin-top: 6px; }
+
+  .btn {
+    padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-weight: bold;
+  }
+  .btn-ekle { background: #0f3460; color: #76b5c5; width: 100%; margin-bottom: 10px; }
+  .btn-ekle:hover { background: #1a4a7e; }
+  .btn-hesapla { background: #e94560; color: #fff; width: 100%; font-size: 15px; padding: 12px; }
+  .btn-hesapla:hover { background: #c73652; }
+  .btn-hesapla:disabled { background: #555; cursor: not-allowed; }
+
+  #map { flex: 1; }
+
+  .sonuc-panel {
+    display: none; background: #0d1b36; padding: 15px; border-radius: 6px;
+    margin-top: 15px; border: 1px solid #0f3460;
+  }
+  .sonuc-panel.aktif { display: block; }
+  .sonuc-baslik { color: #e94560; font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+  .sonuc-ozet { display: flex; gap: 10px; margin-bottom: 12px; }
+  .sonuc-kutu {
+    flex: 1; text-align: center; background: #0f3460; padding: 8px; border-radius: 4px;
+  }
+  .sonuc-kutu .deger { font-size: 16px; font-weight: bold; color: #e94560; }
+  .sonuc-kutu .etiket { font-size: 10px; color: #a0a0b0; }
+  .rota-listesi { font-size: 12px; line-height: 22px; }
+  .rota-listesi .durak { padding: 3px 0; border-bottom: 1px solid #1a3a6e; }
+  .rota-listesi .saat { color: #76b5c5; font-weight: bold; }
+
+  .yukleniyor {
+    display: none; text-align: center; padding: 20px; color: #76b5c5;
+  }
+  .yukleniyor.aktif { display: block; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <h1>TOROS</h1>
+
+  <h2>Depo Konumu</h2>
+  <div class="depo-alan">
+    <div class="form-grup">
+      <label>Enlem (Lat)</label>
+      <input type="number" id="depo-lat" step="0.0001" value="40.9800">
+    </div>
+    <div class="form-grup">
+      <label>Boylam (Lon)</label>
+      <input type="number" id="depo-lon" step="0.0001" value="28.8720">
+    </div>
+    <div class="form-grup">
+      <label>Kalkis Zamani</label>
+      <input type="datetime-local" id="kalkis-zamani">
+    </div>
+  </div>
+
+  <h2>Teslimat Noktalari</h2>
+  <div id="teslimat-listesi" class="teslimat-listesi"></div>
+  <button class="btn btn-ekle" onclick="teslimatEkle()">+ Teslimat Ekle</button>
+  <button class="btn btn-hesapla" id="btn-hesapla" onclick="hesapla()">Rota Hesapla</button>
+
+  <div class="yukleniyor" id="yukleniyor">Hesaplaniyor...</div>
+
+  <div class="sonuc-panel" id="sonuc-panel">
+    <div class="sonuc-baslik">Optimizasyon Sonucu</div>
+    <div class="sonuc-ozet">
+      <div class="sonuc-kutu">
+        <div class="deger" id="s-mesafe">-</div>
+        <div class="etiket">Mesafe</div>
+      </div>
+      <div class="sonuc-kutu">
+        <div class="deger" id="s-sure">-</div>
+        <div class="etiket">Trafikli</div>
+      </div>
+      <div class="sonuc-kutu">
+        <div class="deger" id="s-teslimat">-</div>
+        <div class="etiket">Teslimat</div>
+      </div>
+    </div>
+    <div class="rota-listesi" id="rota-listesi"></div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+var map = L.map('map').setView([40.99, 28.84], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OSM &copy; CARTO', maxZoom: 19,
+}).addTo(map);
+
+var markerlar = [];
+var rotaCizgi = null;
+var sayac = 0;
+
+var now = new Date();
+now.setMinutes(now.getMinutes() + 30);
+var iso = now.toISOString().slice(0, 16);
+document.getElementById('kalkis-zamani').value = iso;
+
+function teslimatEkle(isim, lat, lon) {
+  sayac++;
+  var id = sayac;
+  var div = document.createElement('div');
+  div.className = 'teslimat-karti';
+  div.id = 'teslimat-' + id;
+  div.innerHTML = ''
+    + '<button class="sil-btn" onclick="teslimatSil(' + id + ')">&times;</button>'
+    + '<div class="form-grup"><label>Isim</label>'
+    + '<input type="text" class="t-isim" value="' + (isim || 'Teslimat ' + id) + '"></div>'
+    + '<div class="satir">'
+    + '<div class="form-grup"><label>Lat</label><input type="number" class="t-lat" step="0.0001" value="' + (lat || '') + '"></div>'
+    + '<div class="form-grup"><label>Lon</label><input type="number" class="t-lon" step="0.0001" value="' + (lon || '') + '"></div>'
+    + '</div>'
+    + '<div class="pencere-toggle" onclick="pencereToggle(' + id + ')">+ Zaman penceresi ekle</div>'
+    + '<div class="pencere-alan" id="pencere-' + id + '" style="display:none">'
+    + '<div class="satir">'
+    + '<div class="form-grup"><label>Baslangic</label><input type="datetime-local" class="t-pencere-bas"></div>'
+    + '<div class="form-grup"><label>Bitis</label><input type="datetime-local" class="t-pencere-son"></div>'
+    + '</div></div>';
+  document.getElementById('teslimat-listesi').appendChild(div);
+}
+
+function teslimatSil(id) {
+  var el = document.getElementById('teslimat-' + id);
+  if (el) el.remove();
+}
+
+function pencereToggle(id) {
+  var el = document.getElementById('pencere-' + id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function veriTopla() {
+  var kartlar = document.querySelectorAll('.teslimat-karti');
+  var teslimatlar = [];
+
+  kartlar.forEach(function(k) {
+    var lat = parseFloat(k.querySelector('.t-lat').value);
+    var lon = parseFloat(k.querySelector('.t-lon').value);
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    var t = {
+      isim: k.querySelector('.t-isim').value,
+      lat: lat,
+      lon: lon,
+    };
+
+    var bas = k.querySelector('.t-pencere-bas').value;
+    var son = k.querySelector('.t-pencere-son').value;
+    if (bas && son) {
+      t.pencere_bas = bas;
+      t.pencere_son = son;
+    }
+
+    teslimatlar.push(t);
+  });
+
+  return {
+    depo: {
+      lat: parseFloat(document.getElementById('depo-lat').value),
+      lon: parseFloat(document.getElementById('depo-lon').value),
+    },
+    kalkis_zamani: document.getElementById('kalkis-zamani').value,
+    teslimatlar: teslimatlar,
+  };
+}
+
+function hesapla() {
+  var veri = veriTopla();
+  if (veri.teslimatlar.length < 2) {
+    alert('En az 2 teslimat noktasi ekleyin.');
+    return;
+  }
+
+  document.getElementById('btn-hesapla').disabled = true;
+  document.getElementById('yukleniyor').classList.add('aktif');
+  document.getElementById('sonuc-panel').classList.remove('aktif');
+
+  fetch('/optimize', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(veri),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(sonuc) {
+    document.getElementById('yukleniyor').classList.remove('aktif');
+    document.getElementById('btn-hesapla').disabled = false;
+
+    if (sonuc.hata) {
+      alert('Hata: ' + sonuc.hata);
+      return;
+    }
+
+    haritaCiz(veri, sonuc);
+    sonucGoster(sonuc);
+  })
+  .catch(function(err) {
+    document.getElementById('yukleniyor').classList.remove('aktif');
+    document.getElementById('btn-hesapla').disabled = false;
+    alert('Hata: ' + err);
+  });
+}
+
+function decodePolyline(encoded) {
+  var points = [];
+  var index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    var b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += ((result & 1) ? ~(result >> 1) : (result >> 1));
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += ((result & 1) ? ~(result >> 1) : (result >> 1));
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+  return points;
+}
+
+function haritaCiz(veri, sonuc) {
+  markerlar.forEach(function(m) { map.removeLayer(m); });
+  markerlar = [];
+  if (rotaCizgi) { map.removeLayer(rotaCizgi); }
+
+  var depoMarker = L.marker([veri.depo.lat, veri.depo.lon], {
+    icon: L.divIcon({
+      html: '<div style="background:#00e676;color:#000;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:11px;white-space:nowrap;">Depo</div>',
+      className: '',
+    })
+  }).addTo(map);
+  markerlar.push(depoMarker);
+
+  sonuc.isimler.forEach(function(isim, i) {
+    var idx = sonuc.optimal_sira[i];
+    var t = veri.teslimatlar[idx];
+    var varis = sonuc.varis_zamanlari[i];
+    var marker = L.marker([t.lat, t.lon], {
+      icon: L.divIcon({
+        html: '<div style="background:#e94560;color:#fff;padding:3px 7px;border-radius:10px;font-size:11px;white-space:nowrap;">' + (i+1) + '. ' + isim + ' <span style="color:#ffcdd2">' + varis + '</span></div>',
+        className: '',
+      })
+    }).addTo(map);
+    markerlar.push(marker);
+  });
+
+  var tumNoktalar = [];
+  sonuc.polyline.forEach(function(pl) {
+    tumNoktalar = tumNoktalar.concat(decodePolyline(pl));
+  });
+
+  rotaCizgi = L.polyline(tumNoktalar, {
+    color: '#00b0ff', weight: 5, opacity: 0.9,
+  }).addTo(map);
+
+  map.fitBounds(rotaCizgi.getBounds(), {padding: [40, 40]});
+}
+
+function sonucGoster(sonuc) {
+  document.getElementById('s-mesafe').textContent = sonuc.toplam_mesafe;
+  document.getElementById('s-sure').textContent = sonuc.toplam_trafik;
+  document.getElementById('s-teslimat').textContent = sonuc.isimler.length;
+
+  var html = '<div class="durak"><b>0.</b> Depo (kalkis)</div>';
+  sonuc.isimler.forEach(function(isim, i) {
+    var varis = sonuc.varis_zamanlari[i];
+    html += '<div class="durak"><b>' + (i+1) + '.</b> ' + isim + ' <span class="saat">' + varis + '</span></div>';
+  });
+  var donus = sonuc.varis_zamanlari[sonuc.varis_zamanlari.length - 1];
+  html += '<div class="durak"><b>' + (sonuc.isimler.length + 1) + '.</b> Depo (donus) <span class="saat">' + donus + '</span></div>';
+
+  document.getElementById('rota-listesi').innerHTML = html;
+  document.getElementById('sonuc-panel').classList.add('aktif');
+}
+
+teslimatEkle('Teslimat 1', '', '');
+teslimatEkle('Teslimat 2', '', '');
+</script>
+</body>
+</html>
