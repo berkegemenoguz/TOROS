@@ -11,6 +11,13 @@ GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
 app = Flask(__name__)
 
+IST_LAT_MIN, IST_LAT_MAX = 40.80, 41.35
+IST_LON_MIN, IST_LON_MAX = 28.50, 29.45
+
+
+def istanbul_ici_mi(lat, lon):
+    return IST_LAT_MIN <= lat <= IST_LAT_MAX and IST_LON_MIN <= lon <= IST_LON_MAX
+
 
 @app.route("/")
 def anasayfa():
@@ -33,6 +40,10 @@ def geocode():
 
     sonuc = veri["results"][0]
     loc = sonuc["geometry"]["location"]
+
+    if not istanbul_ici_mi(loc["lat"], loc["lng"]):
+        return jsonify({"hata": "Adres Istanbul sinirlarinin disinda"}), 400
+
     return jsonify({
         "lat": loc["lat"],
         "lon": loc["lng"],
@@ -46,6 +57,10 @@ def optimize():
     print("Gelen veri:", veri)
 
     depo = (veri["depo"]["lat"], veri["depo"]["lon"])
+
+    if not istanbul_ici_mi(depo[0], depo[1]):
+        return jsonify({"hata": "Depo Istanbul sinirlarinin disinda"}), 400
+
     kalkis = datetime.fromisoformat(veri["kalkis_zamani"])
     if kalkis < datetime.now():
         kalkis = datetime.now() + __import__('datetime').timedelta(minutes=5)
@@ -56,6 +71,8 @@ def optimize():
     pencereler = {}
 
     for i, t in enumerate(veri["teslimatlar"]):
+        if not istanbul_ici_mi(t["lat"], t["lon"]):
+            return jsonify({"hata": f"Teslimat {i+1} Istanbul sinirlarinin disinda"}), 400
         teslimatlar.append((t["lat"], t["lon"]))
         isimler.append(t.get("isim", f"Teslimat {i+1}"))
 
