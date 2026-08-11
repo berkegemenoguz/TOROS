@@ -1,6 +1,6 @@
 # TOROS - Trafik Odakli Rota Optimizasyon Sistemi
 
-Istanbul'un Bakirköy, Bahcelievler ve Kucukcekmece ilcelerinde teslimat rotalarini trafik verisiyle optimize eden bir sistem.
+Istanbul ili sinirlarinda teslimat rotalarini trafik verisiyle optimize eden bir sistem.
 
 ## Ozellikler
 
@@ -8,9 +8,10 @@ Istanbul'un Bakirköy, Bahcelievler ve Kucukcekmece ilcelerinde teslimat rotalar
 - Distance Matrix API ile coklu teslimat noktasi optimizasyonu
 - Budamali arama (≤14 teslimat) ve hibrit arama (15+ teslimat) algoritmalari
 - Zaman penceresi destegi (belirli saatlerde teslimat zorunlulugu)
-- Depoya donus rotasi (acilip kapatilabilir)
+- Depoya donus rotasi (acilip kapatilabilir, haritada mor kesikli cizgi)
 - Adres tabanli konum arama (Geocoding API)
 - Optimize edilmis rotayi Google Maps'te acma ve link paylasma
+- Istanbul sinir kontrolu (il disindaki koordinatlar reddedilir)
 - Leaflet harita gorsellestirmesi (CARTO dark tema)
 
 ## Kurulum
@@ -42,7 +43,7 @@ Tarayicida `http://localhost:5050` adresine gidin.
 
 | Dosya | Aciklama |
 |-------|----------|
-| `app.py` | Flask web sunucusu, API endpoint'leri |
+| `app.py` | Flask web sunucusu, API endpoint'leri, Istanbul sinir kontrolu |
 | `coklu_teslimat.py` | Rota optimizasyon algoritmalari (budamali arama, hibrit arama, 2-opt) |
 | `rota.py` | Tek rota hesaplama (Google Directions API) |
 | `harita.py` | HTML harita olusturma |
