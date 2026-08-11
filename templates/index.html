@@ -151,7 +151,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 }).addTo(map);
 
 var markerlar = [];
-var rotaCizgi = null;
+var rotaCizgiler = [];
 var sayac = 0;
 
 var now = new Date();
@@ -321,11 +321,12 @@ function decodePolyline(encoded) {
 function haritaCiz(veri, sonuc) {
   markerlar.forEach(function(m) { map.removeLayer(m); });
   markerlar = [];
-  if (rotaCizgi) { map.removeLayer(rotaCizgi); }
+  rotaCizgiler.forEach(function(c) { map.removeLayer(c); });
+  rotaCizgiler = [];
 
   var depoMarker = L.marker([veri.depo.lat, veri.depo.lon], {
     icon: L.divIcon({
-      html: '<div style="background:#00e676;color:#000;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:11px;white-space:nowrap;">Depo</div>',
+      html: '<div style="background:#00e676;color:#fff;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:11px;white-space:nowrap;">Depo</div>',
       className: '',
     })
   }).addTo(map);
@@ -344,16 +345,22 @@ function haritaCiz(veri, sonuc) {
     markerlar.push(marker);
   });
 
-  var tumNoktalar = [];
-  sonuc.polyline.forEach(function(pl) {
-    tumNoktalar = tumNoktalar.concat(decodePolyline(pl));
+  var depoyaDon = document.getElementById('depoya-don').checked;
+  var bounds = L.latLngBounds();
+
+  sonuc.bacak_polylines.forEach(function(noktalar, i) {
+    var sonBacak = depoyaDon && i === sonuc.bacak_polylines.length - 1;
+    var cizgi = L.polyline(noktalar, {
+      color: sonBacak ? '#ab47bc' : '#00b0ff',
+      weight: 5,
+      opacity: 0.9,
+      dashArray: sonBacak ? '10, 8' : null,
+    }).addTo(map);
+    rotaCizgiler.push(cizgi);
+    bounds.extend(cizgi.getBounds());
   });
 
-  rotaCizgi = L.polyline(tumNoktalar, {
-    color: '#00b0ff', weight: 5, opacity: 0.9,
-  }).addTo(map);
-
-  map.fitBounds(rotaCizgi.getBounds(), {padding: [40, 40]});
+  map.fitBounds(bounds, {padding: [40, 40]});
 }
 
 function sonucGoster(sonuc) {

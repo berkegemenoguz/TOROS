@@ -260,6 +260,7 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
     MAX_WP = 25
     tum_bacaklar_raw = []
     tum_polylines = []
+    bacak_polylines = []
     directions_istek = 0
 
     for parca_bas in range(0, len(siralanmis), MAX_WP):
@@ -301,6 +302,11 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
         rota = veri["routes"][0]
         tum_bacaklar_raw.extend(rota["legs"])
         tum_polylines.append(rota["overview_polyline"]["points"])
+        for bacak in rota["legs"]:
+            bacak_noktalar = []
+            for adim in bacak["steps"]:
+                bacak_noktalar.extend(polyline.decode(adim["polyline"]["points"]))
+            bacak_polylines.append(bacak_noktalar)
 
     print(f"  {directions_istek} directions istegi kullanildi")
 
@@ -353,6 +359,7 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
         "toplam_trafik_sn": toplam_trafik,
         "toplam_trafik": f"{toplam_trafik // 60} dk",
         "polyline": tum_polylines,
+        "bacak_polylines": [[[p[0], p[1]] for p in bp] for bp in bacak_polylines],
         "teslimat_sayisi": len(teslimatlar),
         "varis_zamanlari": varis_zamanlari,
     }

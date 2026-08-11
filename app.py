@@ -89,6 +89,7 @@ def optimize():
         "toplam_trafik": sonuc["toplam_trafik"],
         "varis_zamanlari": sonuc["varis_zamanlari"],
         "polyline": sonuc["polyline"],
+        "bacak_polylines": sonuc["bacak_polylines"],
     })
 
 
