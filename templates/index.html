@@ -107,6 +107,12 @@
       <label>Kalkis Zamani</label>
       <input type="datetime-local" id="kalkis-zamani">
     </div>
+    <div class="form-grup" style="margin-top:8px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="depoya-don" checked style="width:auto;accent-color:#e94560;">
+        Depoya donus rotasi ekle
+      </label>
+    </div>
   </div>
 
   <h2>Teslimat Noktalari</h2>
@@ -257,6 +263,7 @@ function veriTopla() {
     },
     kalkis_zamani: document.getElementById('kalkis-zamani').value,
     teslimatlar: teslimatlar,
+    depoya_don: document.getElementById('depoya-don').checked,
   };
 }
 
@@ -354,13 +361,16 @@ function sonucGoster(sonuc) {
   document.getElementById('s-sure').textContent = sonuc.toplam_trafik;
   document.getElementById('s-teslimat').textContent = sonuc.isimler.length;
 
+  var depoyaDon = document.getElementById('depoya-don').checked;
   var html = '<div class="durak"><b>0.</b> Depo (kalkis)</div>';
   sonuc.isimler.forEach(function(isim, i) {
     var varis = sonuc.varis_zamanlari[i];
     html += '<div class="durak"><b>' + (i+1) + '.</b> ' + isim + ' <span class="saat">' + varis + '</span></div>';
   });
-  var donus = sonuc.varis_zamanlari[sonuc.varis_zamanlari.length - 1];
-  html += '<div class="durak"><b>' + (sonuc.isimler.length + 1) + '.</b> Depo (donus) <span class="saat">' + donus + '</span></div>';
+  if (depoyaDon) {
+    var donus = sonuc.varis_zamanlari[sonuc.varis_zamanlari.length - 1];
+    html += '<div class="durak"><b>' + (sonuc.isimler.length + 1) + '.</b> Depo (donus) <span class="saat">' + donus + '</span></div>';
+  }
 
   document.getElementById('rota-listesi').innerHTML = html;
   document.getElementById('sonuc-panel').classList.add('aktif');

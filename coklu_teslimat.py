@@ -58,13 +58,13 @@ def sure_matrisi_al(noktalar, kalkis_zamani):
     return matris
 
 
-def budamali_arama(matris, n, pencereler, kalkis_zamani):
+def budamali_arama(matris, n, pencereler, kalkis_zamani, depoya_don=True):
     en_iyi_sure = float("inf")
     en_iyi_sira = None
 
     def hizli_rota(kalanlar, son_nokta):
         if not kalanlar:
-            return matris[son_nokta][0]
+            return matris[son_nokta][0] if depoya_don else 0
         en_yakin = min(matris[son_nokta][k] for k in kalanlar)
         return en_yakin
 
@@ -72,7 +72,7 @@ def budamali_arama(matris, n, pencereler, kalkis_zamani):
         nonlocal en_iyi_sure, en_iyi_sira
 
         if not kalanlar:
-            donus = gecen_sure + matris[son_nokta][0]
+            donus = gecen_sure + (matris[son_nokta][0] if depoya_don else 0)
             if donus < en_iyi_sure:
                 en_iyi_sure = donus
                 en_iyi_sira = list(sira)
@@ -102,7 +102,6 @@ def budamali_arama(matris, n, pencereler, kalkis_zamani):
 
     teslimat_idxler = set(range(1, n))
 
-    # En yakin komsu ile baslangic esigi bul
     sira = []
     kalanlar = set(teslimat_idxler)
     son = 0
@@ -128,7 +127,8 @@ def budamali_arama(matris, n, pencereler, kalkis_zamani):
         son = en_yakin
 
     if gecerli:
-        sure += matris[son][0]
+        if depoya_don:
+            sure += matris[son][0]
         en_iyi_sure = sure
         en_iyi_sira = list(sira)
 
@@ -141,7 +141,7 @@ def budamali_arama(matris, n, pencereler, kalkis_zamani):
     return gercek_sira, en_iyi_sure
 
 
-def en_yakin_komsu(matris, n, pencereler, kalkis_zamani):
+def en_yakin_komsu(matris, n, pencereler, kalkis_zamani, depoya_don=True):
     sira = []
     kalanlar = set(range(1, n))
     son = 0
@@ -163,11 +163,12 @@ def en_yakin_komsu(matris, n, pencereler, kalkis_zamani):
         kalanlar.remove(en_yakin)
         son = en_yakin
 
-    sure += matris[son][0]
+    if depoya_don:
+        sure += matris[son][0]
     return sira, sure
 
 
-def pencere_gecerli_mi(sira, matris, pencereler, kalkis_zamani):
+def pencere_gecerli_mi(sira, matris, pencereler, kalkis_zamani, depoya_don=True):
     sure = 0
     son = 0
     for nokta in sira:
@@ -183,13 +184,14 @@ def pencere_gecerli_mi(sira, matris, pencereler, kalkis_zamani):
                 sure += (bas - varis).total_seconds()
         son = nokta
 
-    sure += matris[son][0]
+    if depoya_don:
+        sure += matris[son][0]
     return True, sure
 
 
-def iki_opt(matris, n, pencereler, kalkis_zamani, baslangic_sira):
+def iki_opt(matris, n, pencereler, kalkis_zamani, baslangic_sira, depoya_don=True):
     en_iyi = list(baslangic_sira)
-    _, en_iyi_sure = pencere_gecerli_mi(en_iyi, matris, pencereler, kalkis_zamani)
+    _, en_iyi_sure = pencere_gecerli_mi(en_iyi, matris, pencereler, kalkis_zamani, depoya_don)
     iyilesti = True
 
     while iyilesti:
@@ -199,7 +201,7 @@ def iki_opt(matris, n, pencereler, kalkis_zamani, baslangic_sira):
                 yeni = list(en_iyi)
                 yeni[i], yeni[j] = yeni[j], yeni[i]
 
-                gecerli, sure = pencere_gecerli_mi(yeni, matris, pencereler, kalkis_zamani)
+                gecerli, sure = pencere_gecerli_mi(yeni, matris, pencereler, kalkis_zamani, depoya_don)
                 if gecerli and sure < en_iyi_sure:
                     en_iyi = yeni
                     en_iyi_sure = sure
@@ -208,18 +210,18 @@ def iki_opt(matris, n, pencereler, kalkis_zamani, baslangic_sira):
     return en_iyi, en_iyi_sure
 
 
-def hibrit_arama(matris, n, pencereler, kalkis_zamani):
-    baslangic_sira, _ = en_yakin_komsu(matris, n, pencereler, kalkis_zamani)
-    optimal_sira, optimal_sure = iki_opt(matris, n, pencereler, kalkis_zamani, baslangic_sira)
+def hibrit_arama(matris, n, pencereler, kalkis_zamani, depoya_don=True):
+    baslangic_sira, _ = en_yakin_komsu(matris, n, pencereler, kalkis_zamani, depoya_don)
+    optimal_sira, optimal_sure = iki_opt(matris, n, pencereler, kalkis_zamani, baslangic_sira, depoya_don)
 
     import random
     random.seed(42)
     for _ in range(20):
         rastgele = list(range(1, n))
         random.shuffle(rastgele)
-        gecerli, _ = pencere_gecerli_mi(rastgele, matris, pencereler, kalkis_zamani)
+        gecerli, _ = pencere_gecerli_mi(rastgele, matris, pencereler, kalkis_zamani, depoya_don)
         if gecerli:
-            sira, sure = iki_opt(matris, n, pencereler, kalkis_zamani, rastgele)
+            sira, sure = iki_opt(matris, n, pencereler, kalkis_zamani, rastgele, depoya_don)
             if sure < optimal_sure:
                 optimal_sira = sira
                 optimal_sure = sure
@@ -242,10 +244,10 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
 
     if len(teslimatlar) <= 14:
         print(f"Budamali arama basliyor ({len(teslimatlar)} teslimat)...")
-        optimal_sira, toplam_sn = budamali_arama(matris, n, pencereler, kalkis_zamani)
+        optimal_sira, toplam_sn = budamali_arama(matris, n, pencereler, kalkis_zamani, depoya_don)
     else:
         print(f"Hibrit arama basliyor ({len(teslimatlar)} teslimat)...")
-        optimal_sira, toplam_sn = hibrit_arama(matris, n, pencereler, kalkis_zamani)
+        optimal_sira, toplam_sn = hibrit_arama(matris, n, pencereler, kalkis_zamani, depoya_don)
 
     if optimal_sira is None:
         print("Zaman pencerelerine uyan bir siralama bulunamadi!")
@@ -387,108 +389,24 @@ def sonuc_yazdir(sonuc, teslimat_isimleri=None):
 
 
 if __name__ == "__main__":
-    depo = (40.9800, 28.8720)  # Bakirkoy Meydani
+    depo = (40.9800, 28.8720)
 
     teslimatlar = [
-        (40.9985, 28.8590),   # 0  Bahcelievler Kultur Sk
-        (41.0055, 28.8510),   # 1  Yenibosna Merkez
-        (40.9950, 28.8720),   # 2  Osmaniye Mah
-        (40.9870, 28.8400),   # 3  Yesilkoy Ataturk Cd
-        (40.9750, 28.8500),   # 4  Atakoy 5. Kisim
-        (40.9780, 28.8600),   # 5  Atakoy 2. Kisim
-        (40.9830, 28.8310),   # 6  Yesilkoy Havaalani Cd
-        (41.0020, 28.7730),   # 7  Kucukcekmece Cennet Mah
-        (41.0100, 28.7850),   # 8  Kucukcekmece Atakent
-        (41.0150, 28.7650),   # 9  Halkali Cd
-        (41.0000, 28.8300),   # 10 Soganli
-        (40.9920, 28.8480),   # 11 Zuhuratbaba
-        (40.9700, 28.8450),   # 12 Atakoy 7-8. Kisim
-        (41.0080, 28.8100),   # 13 Eski Londra Asfalt
-        (40.9850, 28.8550),   # 14 Sakizagaci
-        (41.0200, 28.7900),   # 15 Sefakoy
-        (40.9900, 28.8200),   # 16 Yesilkoy Istasyon Cd
-        (41.0050, 28.8680),   # 17 Sirinveler Meydan
-        (40.9780, 28.8420),   # 18 Yesilkoy Cirpici Sk
-        (41.0120, 28.8450),   # 19 Cobancesme
-        (41.0180, 28.7750),   # 20 Halkali Merkez
-        (40.9960, 28.8100),   # 21 Basaksehir Yol Girisi
-        (41.0030, 28.8430),   # 22 Bahcelievler Zafer Mah
-        (40.9720, 28.8350),   # 23 Yesilkoy Sahil
-        (41.0070, 28.8600),   # 24 Sirinveler Yenidogan Sk
-        (40.9880, 28.8650),   # 25 Bakirkoy Incirli Cd
-        (41.0140, 28.8200),   # 26 Kucukcekmece Gultepe
-        (40.9810, 28.8480),   # 27 Bakirkoy Kartaltepe
-        (41.0060, 28.7950),   # 28 Kucukcekmece Fevzi Cakmak
-        (40.9930, 28.8350),   # 29 Bahcelievler Kocasinan
+        (40.9985, 28.8590),
+        (40.9870, 28.8400),
     ]
 
     isimler = [
         "Bahcelievler Kultur Sk",
-        "Yenibosna Merkez",
-        "Osmaniye Mah",
         "Yesilkoy Ataturk Cd",
-        "Atakoy 5. Kisim",
-        "Atakoy 2. Kisim",
-        "Yesilkoy Havaalani Cd",
-        "Kucukcekmece Cennet Mah",
-        "Kucukcekmece Atakent",
-        "Halkali Cd",
-        "Soganli",
-        "Zuhuratbaba",
-        "Atakoy 7-8. Kisim",
-        "Eski Londra Asfalt",
-        "Sakizagaci",
-        "Sefakoy",
-        "Yesilkoy Istasyon Cd",
-        "Sirinveler Meydan",
-        "Yesilkoy Cirpici Sk",
-        "Cobancesme",
-        "Halkali Merkez",
-        "Basaksehir Yol Girisi",
-        "Bahcelievler Zafer Mah",
-        "Yesilkoy Sahil",
-        "Sirinveler Yenidogan Sk",
-        "Bakirkoy Incirli Cd",
-        "Kucukcekmece Gultepe",
-        "Bakirkoy Kartaltepe",
-        "Kucukcekmece Fevzi Cakmak",
-        "Bahcelievler Kocasinan",
     ]
-
-    T = datetime(2026, 8, 12)
-    pencereler = {
-        0:  (T.replace(hour=15, minute=15), T.replace(hour=15, minute=45)),
-        1:  (T.replace(hour=15, minute=30), T.replace(hour=16, minute=0)),
-        2:  (T.replace(hour=15, minute=0),  T.replace(hour=15, minute=30)),
-        3:  (T.replace(hour=15, minute=20), T.replace(hour=15, minute=50)),
-        4:  (T.replace(hour=15, minute=40), T.replace(hour=16, minute=10)),
-        5:  (T.replace(hour=15, minute=10), T.replace(hour=15, minute=40)),
-        7:  (T.replace(hour=17, minute=0),  T.replace(hour=17, minute=30)),
-        8:  (T.replace(hour=17, minute=15), T.replace(hour=17, minute=45)),
-        9:  (T.replace(hour=17, minute=30), T.replace(hour=18, minute=0)),
-        10: (T.replace(hour=16, minute=0),  T.replace(hour=16, minute=30)),
-        11: (T.replace(hour=15, minute=45), T.replace(hour=16, minute=15)),
-        12: (T.replace(hour=16, minute=0),  T.replace(hour=16, minute=30)),
-        13: (T.replace(hour=16, minute=30), T.replace(hour=17, minute=0)),
-        14: (T.replace(hour=15, minute=15), T.replace(hour=15, minute=45)),
-        15: (T.replace(hour=17, minute=45), T.replace(hour=18, minute=15)),
-        16: (T.replace(hour=15, minute=30), T.replace(hour=16, minute=0)),
-        17: (T.replace(hour=16, minute=15), T.replace(hour=16, minute=45)),
-        19: (T.replace(hour=16, minute=30), T.replace(hour=17, minute=0)),
-        20: (T.replace(hour=17, minute=30), T.replace(hour=18, minute=0)),
-        21: (T.replace(hour=16, minute=15), T.replace(hour=16, minute=45)),
-        22: (T.replace(hour=16, minute=0),  T.replace(hour=16, minute=30)),
-        24: (T.replace(hour=16, minute=15), T.replace(hour=16, minute=45)),
-        25: (T.replace(hour=15, minute=15), T.replace(hour=15, minute=45)),
-        26: (T.replace(hour=17, minute=0),  T.replace(hour=17, minute=30)),
-        28: (T.replace(hour=17, minute=15), T.replace(hour=17, minute=45)),
-    }
 
     sonuc = teslimat_optimize(
         depo=depo,
         teslimatlar=teslimatlar,
         kalkis_zamani=datetime(2026, 8, 12, 15, 0),
-        pencereler=pencereler,
+        pencereler={},
+        depoya_don=True,
     )
 
     sonuc_yazdir(sonuc, isimler)

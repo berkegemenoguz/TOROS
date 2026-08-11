@@ -65,11 +65,14 @@ def optimize():
                 datetime.fromisoformat(t["pencere_son"]),
             )
 
+    depoya_don = veri.get("depoya_don", True)
+
     sonuc = teslimat_optimize(
         depo=depo,
         teslimatlar=teslimatlar,
         kalkis_zamani=kalkis,
         pencereler=pencereler,
+        depoya_don=depoya_don,
     )
 
     if sonuc is None:
