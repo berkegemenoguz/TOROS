@@ -49,6 +49,14 @@
   }
   .btn-ekle { background: #0f3460; color: #76b5c5; width: 100%; margin-bottom: 10px; }
   .btn-ekle:hover { background: #1a4a7e; }
+  .btn-ara {
+    background: #1a4a7e; color: #76b5c5; border: none; padding: 8px 12px;
+    border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap;
+  }
+  .btn-ara:hover { background: #2a5a8e; }
+  .adres-satir { display: flex; gap: 6px; }
+  .adres-satir input { flex: 1; }
+  .satir { display: flex; gap: 6px; }
   .btn-hesapla { background: #e94560; color: #fff; width: 100%; font-size: 15px; padding: 12px; }
   .btn-hesapla:hover { background: #c73652; }
   .btn-hesapla:disabled { background: #555; cursor: not-allowed; }
@@ -85,12 +93,15 @@
   <h2>Depo Konumu</h2>
   <div class="depo-alan">
     <div class="form-grup">
-      <label>Enlem (Lat)</label>
-      <input type="number" id="depo-lat" step="0.0001" value="40.9800">
+      <label>Adres</label>
+      <div class="adres-satir">
+        <input type="text" id="depo-adres" placeholder="Bakirkoy Meydani, Istanbul">
+        <button class="btn btn-ara" onclick="depoAdresiAra()">Ara</button>
+      </div>
     </div>
-    <div class="form-grup">
-      <label>Boylam (Lon)</label>
-      <input type="number" id="depo-lon" step="0.0001" value="28.8720">
+    <div class="satir">
+      <div class="form-grup"><label>Lat</label><input type="number" id="depo-lat" step="0.0001" value="40.9800"></div>
+      <div class="form-grup"><label>Lon</label><input type="number" id="depo-lon" step="0.0001" value="28.8720"></div>
     </div>
     <div class="form-grup">
       <label>Kalkis Zamani</label>
@@ -142,6 +153,33 @@ now.setMinutes(now.getMinutes() + 30);
 var iso = now.toISOString().slice(0, 16);
 document.getElementById('kalkis-zamani').value = iso;
 
+function adresAra(inputEl, latEl, lonEl, isimEl) {
+  var adres = inputEl.value;
+  if (!adres) return;
+  inputEl.style.borderColor = '#76b5c5';
+  fetch('/geocode', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({adres: adres}),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(v) {
+    if (v.hata) { inputEl.style.borderColor = '#e94560'; return; }
+    latEl.value = v.lat.toFixed(4);
+    lonEl.value = v.lon.toFixed(4);
+    if (isimEl && !isimEl.dataset.manual) isimEl.value = v.adres.split(',')[0];
+    inputEl.style.borderColor = '#00e676';
+  })
+  .catch(function() { inputEl.style.borderColor = '#e94560'; });
+}
+
+function depoAdresiAra() {
+  var inp = document.getElementById('depo-adres');
+  var lat = document.getElementById('depo-lat');
+  var lon = document.getElementById('depo-lon');
+  adresAra(inp, lat, lon);
+}
+
 function teslimatEkle(isim, lat, lon) {
   sayac++;
   var id = sayac;
@@ -150,6 +188,9 @@ function teslimatEkle(isim, lat, lon) {
   div.id = 'teslimat-' + id;
   div.innerHTML = ''
     + '<button class="sil-btn" onclick="teslimatSil(' + id + ')">&times;</button>'
+    + '<div class="form-grup"><label>Adres</label>'
+    + '<div class="adres-satir"><input type="text" class="t-adres" placeholder="Adres girin...">'
+    + '<button class="btn btn-ara" onclick="teslimatAdresiAra(' + id + ')">Ara</button></div></div>'
     + '<div class="form-grup"><label>Isim</label>'
     + '<input type="text" class="t-isim" value="' + (isim || 'Teslimat ' + id) + '"></div>'
     + '<div class="satir">'
@@ -163,6 +204,15 @@ function teslimatEkle(isim, lat, lon) {
     + '<div class="form-grup"><label>Bitis</label><input type="datetime-local" class="t-pencere-son"></div>'
     + '</div></div>';
   document.getElementById('teslimat-listesi').appendChild(div);
+}
+
+function teslimatAdresiAra(id) {
+  var kart = document.getElementById('teslimat-' + id);
+  var inp = kart.querySelector('.t-adres');
+  var lat = kart.querySelector('.t-lat');
+  var lon = kart.querySelector('.t-lon');
+  var isim = kart.querySelector('.t-isim');
+  adresAra(inp, lat, lon, isim);
 }
 
 function teslimatSil(id) {

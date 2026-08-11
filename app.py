@@ -1,7 +1,13 @@
 import os
+import requests
 from flask import Flask, request, jsonify, send_file
 from datetime import datetime
+from dotenv import load_dotenv
 from coklu_teslimat import teslimat_optimize
+
+load_dotenv()
+API_KEY = os.getenv("GOOGLE_DIRECTIONS_API_KEY")
+GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
 app = Flask(__name__)
 
@@ -9,6 +15,29 @@ app = Flask(__name__)
 @app.route("/")
 def anasayfa():
     return send_file("templates/index.html")
+
+
+@app.route("/geocode", methods=["POST"])
+def geocode():
+    adres = request.json.get("adres", "")
+    resp = requests.get(GEOCODE_URL, params={
+        "address": adres,
+        "key": API_KEY,
+        "region": "tr",
+        "language": "tr",
+    })
+    veri = resp.json()
+
+    if veri["status"] != "OK" or not veri["results"]:
+        return jsonify({"hata": "Adres bulunamadi"}), 404
+
+    sonuc = veri["results"][0]
+    loc = sonuc["geometry"]["location"]
+    return jsonify({
+        "lat": loc["lat"],
+        "lon": loc["lng"],
+        "adres": sonuc["formatted_address"],
+    })
 
 
 @app.route("/optimize", methods=["POST"])
