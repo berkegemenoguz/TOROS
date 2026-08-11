@@ -43,9 +43,13 @@ def geocode():
 @app.route("/optimize", methods=["POST"])
 def optimize():
     veri = request.json
+    print("Gelen veri:", veri)
 
     depo = (veri["depo"]["lat"], veri["depo"]["lon"])
     kalkis = datetime.fromisoformat(veri["kalkis_zamani"])
+    if kalkis < datetime.now():
+        kalkis = datetime.now() + __import__('datetime').timedelta(minutes=5)
+    print(f"Depo: {depo}, Kalkis: {kalkis}")
 
     teslimatlar = []
     isimler = []
