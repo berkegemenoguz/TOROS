@@ -83,6 +83,14 @@
     display: none; text-align: center; padding: 20px; color: #76b5c5;
   }
   .yukleniyor.aktif { display: block; }
+
+  .btn-maps {
+    display: none; width: 100%; padding: 10px; margin-top: 10px; border: none;
+    border-radius: 6px; background: #1a73e8; color: #fff; font-size: 13px;
+    font-weight: bold; cursor: pointer; text-align: center;
+  }
+  .btn-maps.aktif { display: block; }
+  .btn-maps:hover { background: #1557b0; }
 </style>
 </head>
 <body>
@@ -139,6 +147,10 @@
       </div>
     </div>
     <div class="rota-listesi" id="rota-listesi"></div>
+    <div class="maps-butonlar" id="maps-butonlar" style="display:none;gap:6px;margin-top:10px;">
+      <button class="btn-maps aktif" style="display:block;flex:1;" onclick="googleMapsAc()">Google Maps'te Ac</button>
+      <button class="btn-maps aktif" style="display:block;flex-shrink:0;width:auto;padding:10px 14px;background:#0f3460;" onclick="linkKopyala()">Linki Kopyala</button>
+    </div>
   </div>
 </div>
 
@@ -381,6 +393,34 @@ function sonucGoster(sonuc) {
 
   document.getElementById('rota-listesi').innerHTML = html;
   document.getElementById('sonuc-panel').classList.add('aktif');
+
+  var veri = veriTopla();
+  var depoStr = veri.depo.lat + ',' + veri.depo.lon;
+  var waypoints = sonuc.optimal_sira.map(function(idx) {
+    var t = veri.teslimatlar[idx];
+    return t.lat + ',' + t.lon;
+  });
+
+  var origin = depoStr;
+  var destination = depoyaDon ? depoStr : waypoints[waypoints.length - 1];
+  var wp = depoyaDon ? waypoints : waypoints.slice(0, -1);
+
+  var mapsUrl = 'https://www.google.com/maps/dir/' + origin + '/' + wp.join('/') + '/' + destination;
+  window._mapsUrl = mapsUrl;
+  document.getElementById('maps-butonlar').style.display = 'flex';
+}
+
+function googleMapsAc() {
+  if (window._mapsUrl) window.open(window._mapsUrl, '_blank');
+}
+
+function linkKopyala() {
+  if (!window._mapsUrl) return;
+  navigator.clipboard.writeText(window._mapsUrl).then(function() {
+    var btn = document.querySelector('.maps-butonlar button:last-child');
+    btn.textContent = 'Kopyalandi!';
+    setTimeout(function() { btn.textContent = 'Linki Kopyala'; }, 2000);
+  });
 }
 
 teslimatEkle('Teslimat 1', '', '');
