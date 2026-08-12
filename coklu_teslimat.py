@@ -9,6 +9,7 @@ load_dotenv()
 API_KEY = os.getenv("GOOGLE_DIRECTIONS_API_KEY")
 MATRIX_URL = "https://maps.googleapis.com/maps/api/distancematrix/json"
 DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
+TESLIMAT_SURESI = 900  # 15 dakika (saniye)
 
 
 def sure_matrisi_al(noktalar, kalkis_zamani):
@@ -66,7 +67,7 @@ def budamali_arama(matris, n, pencereler, kalkis_zamani, depoya_don=True):
         if not kalanlar:
             return matris[son_nokta][0] if depoya_don else 0
         en_yakin = min(matris[son_nokta][k] for k in kalanlar)
-        return en_yakin
+        return en_yakin + TESLIMAT_SURESI
 
     def ara(sira, son_nokta, gecen_sure, kalanlar):
         nonlocal en_iyi_sure, en_iyi_sira
@@ -91,6 +92,8 @@ def budamali_arama(matris, n, pencereler, kalkis_zamani, depoya_don=True):
                 if varis_zamani < bas:
                     bekleme = (bas - varis_zamani).total_seconds()
                     varis_suresi += bekleme
+
+            varis_suresi += TESLIMAT_SURESI
 
             alt_sinir = varis_suresi + hizli_rota(kalanlar - {sonraki}, sonraki)
             if alt_sinir >= en_iyi_sure:
@@ -122,6 +125,7 @@ def budamali_arama(matris, n, pencereler, kalkis_zamani, depoya_don=True):
             if varis < bas:
                 sure += (bas - varis).total_seconds()
 
+        sure += TESLIMAT_SURESI
         sira.append(en_yakin)
         kalanlar.remove(en_yakin)
         son = en_yakin
@@ -159,6 +163,7 @@ def en_yakin_komsu(matris, n, pencereler, kalkis_zamani, depoya_don=True):
             if varis < bas:
                 sure += (bas - varis).total_seconds()
 
+        sure += TESLIMAT_SURESI
         sira.append(en_yakin)
         kalanlar.remove(en_yakin)
         son = en_yakin
@@ -182,6 +187,7 @@ def pencere_gecerli_mi(sira, matris, pencereler, kalkis_zamani, depoya_don=True)
                 return False, float("inf")
             if varis < bas:
                 sure += (bas - varis).total_seconds()
+        sure += TESLIMAT_SURESI
         son = nokta
 
     if depoya_don:
@@ -335,6 +341,12 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
                 suan = bas
 
         varis_zamanlari.append(suan.strftime("%H:%M"))
+
+        son_bacak_mi = (i == len(tum_bacaklar_raw) - 1 and depoya_don) or (i == len(tum_bacaklar_raw) - 1 and not depoya_don)
+        depoya_donus_bacagi = depoya_don and i == len(tum_bacaklar_raw) - 1
+        if not depoya_donus_bacagi:
+            suan = suan + timedelta(seconds=TESLIMAT_SURESI)
+            toplam_trafik += TESLIMAT_SURESI
 
         bacaklar.append({
             "sira": i,

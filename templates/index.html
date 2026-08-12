@@ -403,7 +403,7 @@ function sonucGoster(sonuc) {
   var html = '<div class="durak"><b>0.</b> Depo (kalkis)</div>';
   sonuc.isimler.forEach(function(isim, i) {
     var varis = sonuc.varis_zamanlari[i];
-    html += '<div class="durak"><b>' + (i+1) + '.</b> ' + isim + ' <span class="saat">' + varis + '</span></div>';
+    html += '<div class="durak"><b>' + (i+1) + '.</b> ' + isim + ' <span class="saat">' + varis + '</span> <span style="color:#76b5c5;font-size:11px;">(+15dk teslimat)</span></div>';
   });
   if (depoyaDon) {
     var donus = sonuc.varis_zamanlari[sonuc.varis_zamanlari.length - 1];

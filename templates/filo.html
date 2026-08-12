@@ -261,7 +261,12 @@ function teslimatOlustur() {
   teslimatSayac++;
   var tid = 'tes-' + teslimatSayac;
   var adi = document.getElementById('tes-adi').value || ('Kargo ' + teslimatSayac);
-  var adres = document.getElementById('tes-adres').value || '';
+  var adres = document.getElementById('tes-adres').value.trim();
+  if (!adres) {
+    alert('Teslimat adresi zorunludur!');
+    teslimatSayac--;
+    return;
+  }
   var ag = parseFloat(document.getElementById('tes-agirlik').value) || 0;
   var hc = parseFloat(document.getElementById('tes-hacim').value) || 0;
   var termin = document.getElementById('tes-termin').value || '';
