@@ -222,8 +222,7 @@ function teslimatEkle(isim, lat, lon) {
   div.innerHTML = ''
     + '<button class="sil-btn" onclick="teslimatSil(' + id + ')">&times;</button>'
     + '<div class="form-grup"><label>Adres</label>'
-    + '<div class="adres-satir"><input type="text" class="t-adres" placeholder="Adres girin...">'
-    + '<button class="btn btn-ara" onclick="teslimatAdresiAra(' + id + ')">Ara</button></div></div>'
+    + '<input type="text" class="t-adres" placeholder="Adres girin..." readonly></div>'
     + '<div class="form-grup"><label>Isim</label>'
     + '<input type="text" class="t-isim" value="' + (isim || 'Teslimat ' + id) + '"></div>'
     + '<div class="satir">'
@@ -235,14 +234,6 @@ function teslimatEkle(isim, lat, lon) {
   document.getElementById('teslimat-listesi').appendChild(div);
 }
 
-function teslimatAdresiAra(id) {
-  var kart = document.getElementById('teslimat-' + id);
-  var inp = kart.querySelector('.t-adres');
-  var lat = kart.querySelector('.t-lat');
-  var lon = kart.querySelector('.t-lon');
-  var isim = kart.querySelector('.t-isim');
-  adresAra(inp, lat, lon, isim);
-}
 
 function teslimatSil(id) {
   var el = document.getElementById('teslimat-' + id);
