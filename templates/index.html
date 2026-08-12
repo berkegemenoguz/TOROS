@@ -423,32 +423,64 @@ function linkKopyala() {
 
 var seciliArac = null;
 
+var filoVerisi = null;
+
 function filoyuYukle() {
-  var raw = localStorage.getItem('toros_filo');
-  if (!raw) return;
-  var filo = JSON.parse(raw);
-  var aracIds = Object.keys(filo.araclar);
-  if (aracIds.length === 0) return;
+  Promise.all([
+    fetch('/api/araclar').then(function(r) { return r.json(); }),
+    fetch('/api/teslimatlar').then(function(r) { return r.json(); })
+  ]).then(function(sonuclar) {
+    var aracListesi = sonuclar[0];
+    var teslimatListesi = sonuclar[1];
 
-  document.getElementById('filo-alan').style.display = 'block';
-  var liste = document.getElementById('filo-arac-listesi');
-  liste.innerHTML = '';
+    if (aracListesi.length === 0) {
+      document.getElementById('teslimat-alani').style.display = 'block';
+      teslimatEkle('Teslimat 1', '', '');
+      teslimatEkle('Teslimat 2', '', '');
+      return;
+    }
 
-  aracIds.forEach(function(id) {
-    var a = filo.araclar[id];
-    var tesCount = a.teslimatlar.length;
-    var btn = document.createElement('button');
-    btn.className = 'filo-arac-btn';
-    btn.id = 'filo-btn-' + id;
-    btn.innerHTML = '<b>' + a.adi + '</b> <span class="fa-tip">' + a.tip + '</span>'
-      + '<div class="fa-detay">' + tesCount + ' teslimat | ' + a.maxAg + 'kg | ' + a.maxHc + 'm3</div>';
-    btn.onclick = function() { aracSec(id, filo); };
-    liste.appendChild(btn);
+    filoVerisi = { araclar: {}, teslimatlar: {} };
+    teslimatListesi.forEach(function(t) {
+      filoVerisi.teslimatlar[t.id] = {
+        adi: t.adi, adres: t.adres, lat: t.lat, lon: t.lon,
+        ag: t.agirlik, hc: t.hacim,
+        termin: t.termin_tarihi, randevuBas: t.randevu_bas, randevuSon: t.randevu_son,
+        arac_id: t.arac_id
+      };
+    });
+
+    aracListesi.forEach(function(a) {
+      var teslimatlari = [];
+      teslimatListesi.forEach(function(t) {
+        if (t.arac_id === a.id) teslimatlari.push(t.id);
+      });
+      filoVerisi.araclar[a.id] = {
+        adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim,
+        teslimatlar: teslimatlari
+      };
+    });
+
+    document.getElementById('filo-alan').style.display = 'block';
+    var liste = document.getElementById('filo-arac-listesi');
+    liste.innerHTML = '';
+
+    Object.keys(filoVerisi.araclar).forEach(function(id) {
+      var a = filoVerisi.araclar[id];
+      var tesCount = a.teslimatlar.length;
+      var btn = document.createElement('button');
+      btn.className = 'filo-arac-btn';
+      btn.id = 'filo-btn-' + id;
+      btn.innerHTML = '<b>' + a.adi + '</b> <span class="fa-tip">' + a.tip + '</span>'
+        + '<div class="fa-detay">' + tesCount + ' teslimat | ' + a.maxAg + 'kg | ' + a.maxHc + 'm3</div>';
+      btn.onclick = function() { aracSec(parseInt(id)); };
+      liste.appendChild(btn);
+    });
   });
 }
 
-function aracSec(aracId, filo) {
-  var arac = filo.araclar[aracId];
+function aracSec(aracId) {
+  var arac = filoVerisi.araclar[aracId];
   if (!arac || arac.teslimatlar.length === 0) {
     alert('Bu aracta teslimat yok.');
     return;
@@ -469,10 +501,6 @@ function aracSec(aracId, filo) {
   document.getElementById('sonuc-panel').classList.remove('aktif');
   document.getElementById('maps-butonlar').style.display = 'none';
 
-  var tesIds = arac.teslimatlar;
-  var bekleyen = tesIds.length;
-  var geocodeBiten = 0;
-
   var depoLat = parseFloat(document.getElementById('depo-lat').value);
   var depoLon = parseFloat(document.getElementById('depo-lon').value);
   var depoMarker = L.marker([depoLat, depoLon], {
@@ -483,16 +511,12 @@ function aracSec(aracId, filo) {
   }).addTo(map);
   markerlar.push(depoMarker);
 
-  tesIds.forEach(function(tid) {
-    var t = filo.teslimatlar[tid];
-    if (!t) { bekleyen--; return; }
-
-    var randevuStr = '';
-    if (t.randevu) randevuStr = t.randevu;
+  arac.teslimatlar.forEach(function(tid) {
+    var t = filoVerisi.teslimatlar[tid];
+    if (!t) return;
 
     teslimatEkle(t.adi, '', '');
     var kart = document.getElementById('teslimat-' + sayac);
-    var kartId = sayac;
 
     if (t.lat && t.lon) {
       kart.querySelector('.t-adres').value = t.adres || '';
@@ -507,46 +531,6 @@ function aracSec(aracId, filo) {
         })
       }).addTo(map);
       markerlar.push(marker);
-
-      geocodeBiten++;
-      if (geocodeBiten === bekleyen) {
-        var bounds = L.latLngBounds(markerlar.map(function(m) { return m.getLatLng(); }));
-        map.fitBounds(bounds, {padding: [40, 40]});
-      }
-    } else if (t.adres) {
-      kart.querySelector('.t-adres').value = t.adres;
-
-      fetch('/geocode', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({adres: t.adres}),
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(v) {
-        if (!v.hata) {
-          var k = document.getElementById('teslimat-' + kartId);
-          if (k) {
-            k.querySelector('.t-lat').value = v.lat.toFixed(4);
-            k.querySelector('.t-lon').value = v.lon.toFixed(4);
-            k.querySelector('.t-adres').style.borderColor = '#00e676';
-          }
-          var marker = L.marker([v.lat, v.lon], {
-            icon: L.divIcon({
-              html: '<div style="background:#e94560;color:#fff;padding:3px 7px;border-radius:10px;font-size:11px;white-space:nowrap;">' + t.adi + '</div>',
-              className: '',
-            })
-          }).addTo(map);
-          markerlar.push(marker);
-        }
-        geocodeBiten++;
-        if (geocodeBiten === bekleyen) {
-          var bounds = L.latLngBounds(markerlar.map(function(m) { return m.getLatLng(); }));
-          map.fitBounds(bounds, {padding: [40, 40]});
-        }
-      })
-      .catch(function() { geocodeBiten++; });
-    } else {
-      bekleyen--;
     }
 
     if (t.randevuBas && t.randevuSon && t.termin) {
@@ -554,15 +538,14 @@ function aracSec(aracId, filo) {
       kart.querySelector('.t-pencere-son').value = t.termin + 'T' + t.randevuSon;
     }
   });
+
+  if (markerlar.length > 1) {
+    var bounds = L.latLngBounds(markerlar.map(function(m) { return m.getLatLng(); }));
+    map.fitBounds(bounds, {padding: [40, 40]});
+  }
 }
 
 filoyuYukle();
-
-if (!localStorage.getItem('toros_filo')) {
-  document.getElementById('teslimat-alani').style.display = 'block';
-  teslimatEkle('Teslimat 1', '', '');
-  teslimatEkle('Teslimat 2', '', '');
-}
 </script>
 </body>
 </html>
