@@ -434,9 +434,9 @@ function filoyuYukle() {
     var teslimatListesi = sonuclar[1];
 
     if (aracListesi.length === 0) {
-      document.getElementById('teslimat-alani').style.display = 'block';
-      teslimatEkle('Teslimat 1', '', '');
-      teslimatEkle('Teslimat 2', '', '');
+      document.getElementById('filo-alan').style.display = 'block';
+      document.getElementById('filo-arac-listesi').innerHTML =
+        '<p style="color:#aaa;text-align:center;padding:20px 0;">Henuz arac eklenmemis. <a href="/filo" style="color:#e94560;">Filo sayfasindan</a> arac ve teslimat ekleyin.</p>';
       return;
     }
 

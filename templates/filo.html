@@ -122,6 +122,10 @@
         <option value="ticari">Ticari</option>
       </select>
     </div>
+    <div class="form-grup">
+      <label>Plaka</label>
+      <input type="text" id="arac-plaka" placeholder="34 ABC 123">
+    </div>
     <div class="satir">
       <div class="form-grup">
         <label>Max Agirlik (kg)</label>
@@ -246,13 +250,13 @@ function adresAra() {
   });
 }
 
-function aracKutuOlustur(id, adi, tip, maxAg, maxHc) {
+function aracKutuOlustur(id, adi, tip, maxAg, maxHc, plaka) {
   var div = document.createElement('div');
   div.className = 'arac-kutu';
   div.id = 'arac-' + id;
   div.innerHTML = ''
     + '<div class="arac-baslik">'
-    + '  <div><span class="arac-isim">' + adi + '</span> <span class="arac-tip">' + tip + '</span></div>'
+    + '  <div><span class="arac-isim">' + adi + '</span> <span class="arac-tip">' + tip + '</span>' + (plaka ? ' <span style="color:#76b5c5;font-size:11px;margin-left:6px;">' + plaka + '</span>' : '') + '</div>'
     + '  <button class="arac-sil" onclick="aracSil(' + id + ')">&times;</button>'
     + '</div>'
     + '<div class="arac-kapasite" id="arac-' + id + '-kap">'
@@ -272,20 +276,28 @@ function aracKutuOlustur(id, adi, tip, maxAg, maxHc) {
 function aracEkle() {
   var adi = document.getElementById('arac-adi').value || 'Arac';
   var tip = document.getElementById('arac-tipi').value;
+  var plaka = document.getElementById('arac-plaka').value.trim();
   var maxAg = parseFloat(document.getElementById('arac-agirlik').value);
   var maxHc = parseFloat(document.getElementById('arac-hacim').value);
+
+  if (!plaka) {
+    alert('Plaka zorunludur.');
+    document.getElementById('arac-plaka').focus();
+    return;
+  }
 
   fetch('/api/araclar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ adi: adi, tip: tip, max_agirlik: maxAg, max_hacim: maxHc })
+    body: JSON.stringify({ adi: adi, tip: tip, max_agirlik: maxAg, max_hacim: maxHc, plaka: plaka })
   })
   .then(function(r) { return r.json(); })
   .then(function(veri) {
     var id = veri.id;
-    araclar[id] = { adi: adi, tip: tip, maxAg: maxAg, maxHc: maxHc, teslimatlar: [] };
-    aracKutuOlustur(id, adi, tip, maxAg, maxHc);
+    araclar[id] = { adi: adi, tip: tip, maxAg: maxAg, maxHc: maxHc, plaka: plaka, teslimatlar: [] };
+    aracKutuOlustur(id, adi, tip, maxAg, maxHc, plaka);
     document.getElementById('arac-adi').value = '';
+    document.getElementById('arac-plaka').value = '';
   });
 }
 
@@ -584,8 +596,8 @@ function filoyuYukle() {
       teslimatListesi.forEach(function(t) {
         if (t.arac_id === a.id) teslimatlari.push(t.id);
       });
-      araclar[a.id] = { adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim, teslimatlar: teslimatlari };
-      aracKutuOlustur(a.id, a.adi, a.tip, a.max_agirlik, a.max_hacim);
+      araclar[a.id] = { adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim, plaka: a.plaka, teslimatlar: teslimatlari };
+      aracKutuOlustur(a.id, a.adi, a.tip, a.max_agirlik, a.max_hacim, a.plaka);
 
       teslimatlari.forEach(function(tid) {
         var icerik = document.getElementById('arac-' + a.id + '-icerik');
