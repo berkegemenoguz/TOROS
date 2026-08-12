@@ -91,12 +91,29 @@
   }
   .btn-maps.aktif { display: block; }
   .btn-maps:hover { background: #1557b0; }
+
+  .filo-arac-btn {
+    display: block; width: 100%; padding: 10px 12px; margin-bottom: 6px;
+    background: #0f3460; border: 2px solid #1a3a6e; border-radius: 6px;
+    color: #eee; text-align: left; cursor: pointer; font-size: 12px;
+  }
+  .filo-arac-btn:hover { border-color: #76b5c5; }
+  .filo-arac-btn.secili { border-color: #e94560; background: #1a2a50; }
+  .filo-arac-btn .fa-tip { color: #76b5c5; font-size: 10px; }
+  .filo-arac-btn .fa-detay { color: #a0a0b0; font-size: 10px; margin-top: 2px; }
+  .filo-geocode-durum { font-size: 11px; color: #76b5c5; margin-bottom: 8px; }
 </style>
 </head>
 <body>
 
 <div class="panel">
   <h1>TOROS</h1>
+  <a href="/filo" style="color:#76b5c5;font-size:12px;text-decoration:none;display:block;margin-bottom:10px;">Filo Yonetimi &rarr;</a>
+
+  <div id="filo-alan" style="display:none;">
+    <h2>Filo Araclari</h2>
+    <div id="filo-arac-listesi" style="margin-bottom:10px;"></div>
+  </div>
 
   <h2>Depo Konumu</h2>
   <div class="depo-alan">
@@ -123,10 +140,12 @@
     </div>
   </div>
 
+  <div id="teslimat-alani" style="display:none;">
   <h2>Teslimat Noktalari</h2>
   <div id="teslimat-listesi" class="teslimat-listesi"></div>
   <button class="btn btn-ekle" onclick="teslimatEkle()">+ Teslimat Ekle</button>
   <button class="btn btn-hesapla" id="btn-hesapla" onclick="hesapla()">Rota Hesapla</button>
+  </div>
 
   <div class="yukleniyor" id="yukleniyor">Hesaplaniyor...</div>
 
@@ -423,8 +442,137 @@ function linkKopyala() {
   });
 }
 
-teslimatEkle('Teslimat 1', '', '');
-teslimatEkle('Teslimat 2', '', '');
+var seciliArac = null;
+
+function filoyuYukle() {
+  var raw = localStorage.getItem('toros_filo');
+  if (!raw) return;
+  var filo = JSON.parse(raw);
+  var aracIds = Object.keys(filo.araclar);
+  if (aracIds.length === 0) return;
+
+  document.getElementById('filo-alan').style.display = 'block';
+  var liste = document.getElementById('filo-arac-listesi');
+  liste.innerHTML = '';
+
+  aracIds.forEach(function(id) {
+    var a = filo.araclar[id];
+    var tesCount = a.teslimatlar.length;
+    var btn = document.createElement('button');
+    btn.className = 'filo-arac-btn';
+    btn.id = 'filo-btn-' + id;
+    btn.innerHTML = '<b>' + a.adi + '</b> <span class="fa-tip">' + a.tip + '</span>'
+      + '<div class="fa-detay">' + tesCount + ' teslimat | ' + a.maxAg + 'kg | ' + a.maxHc + 'm3</div>';
+    btn.onclick = function() { aracSec(id, filo); };
+    liste.appendChild(btn);
+  });
+}
+
+function aracSec(aracId, filo) {
+  var arac = filo.araclar[aracId];
+  if (!arac || arac.teslimatlar.length === 0) {
+    alert('Bu aracta teslimat yok.');
+    return;
+  }
+
+  document.querySelectorAll('.filo-arac-btn').forEach(function(b) { b.classList.remove('secili'); });
+  document.getElementById('filo-btn-' + aracId).classList.add('secili');
+  seciliArac = aracId;
+
+  document.getElementById('teslimat-alani').style.display = 'block';
+  document.getElementById('teslimat-listesi').innerHTML = '';
+  sayac = 0;
+
+  markerlar.forEach(function(m) { map.removeLayer(m); });
+  markerlar = [];
+  rotaCizgiler.forEach(function(c) { map.removeLayer(c); });
+  rotaCizgiler = [];
+  document.getElementById('sonuc-panel').classList.remove('aktif');
+  document.getElementById('maps-butonlar').style.display = 'none';
+
+  var tesIds = arac.teslimatlar;
+  var bekleyen = tesIds.length;
+  var geocodeBiten = 0;
+
+  var depoLat = parseFloat(document.getElementById('depo-lat').value);
+  var depoLon = parseFloat(document.getElementById('depo-lon').value);
+  var depoMarker = L.marker([depoLat, depoLon], {
+    icon: L.divIcon({
+      html: '<div style="background:#00e676;color:#fff;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:11px;white-space:nowrap;">Depo</div>',
+      className: '',
+    })
+  }).addTo(map);
+  markerlar.push(depoMarker);
+
+  tesIds.forEach(function(tid) {
+    var t = filo.teslimatlar[tid];
+    if (!t) { bekleyen--; return; }
+
+    var randevuStr = '';
+    if (t.randevu) randevuStr = t.randevu;
+
+    teslimatEkle(t.adi, '', '');
+    var kart = document.getElementById('teslimat-' + sayac);
+    var kartId = sayac;
+
+    if (t.adres) {
+      kart.querySelector('.t-adres').value = t.adres;
+
+      fetch('/geocode', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({adres: t.adres}),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(v) {
+        if (!v.hata) {
+          var k = document.getElementById('teslimat-' + kartId);
+          if (k) {
+            k.querySelector('.t-lat').value = v.lat.toFixed(4);
+            k.querySelector('.t-lon').value = v.lon.toFixed(4);
+            k.querySelector('.t-adres').style.borderColor = '#00e676';
+          }
+          var marker = L.marker([v.lat, v.lon], {
+            icon: L.divIcon({
+              html: '<div style="background:#e94560;color:#fff;padding:3px 7px;border-radius:10px;font-size:11px;white-space:nowrap;">' + t.adi + '</div>',
+              className: '',
+            })
+          }).addTo(map);
+          markerlar.push(marker);
+        }
+        geocodeBiten++;
+        if (geocodeBiten === bekleyen) {
+          var bounds = L.latLngBounds(markerlar.map(function(m) { return m.getLatLng(); }));
+          map.fitBounds(bounds, {padding: [40, 40]});
+        }
+      })
+      .catch(function() { geocodeBiten++; });
+    } else {
+      bekleyen--;
+    }
+
+    if (t.randevu && t.termin) {
+      var pencereEl = document.getElementById('pencere-' + kartId);
+      if (pencereEl) {
+        pencereEl.style.display = 'block';
+        var basVal = t.termin + 'T' + t.randevu;
+        var randevuDate = new Date(basVal);
+        randevuDate.setHours(randevuDate.getHours() + 1);
+        var sonVal = t.termin + 'T' + randevuDate.toTimeString().slice(0, 5);
+        kart.querySelector('.t-pencere-bas').value = basVal;
+        kart.querySelector('.t-pencere-son').value = sonVal;
+      }
+    }
+  });
+}
+
+filoyuYukle();
+
+if (!localStorage.getItem('toros_filo')) {
+  document.getElementById('teslimat-alani').style.display = 'block';
+  teslimatEkle('Teslimat 1', '', '');
+  teslimatEkle('Teslimat 2', '', '');
+}
 </script>
 </body>
 </html>

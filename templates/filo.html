@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>TOROS - Filo Yonetimi</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+
+  .ust-bar { background: #16213e; padding: 12px 20px; border-bottom: 2px solid #0f3460; display: flex; align-items: center; gap: 15px; }
+  .ust-bar h1 { font-size: 18px; color: #e94560; }
+  .ust-bar a { color: #76b5c5; font-size: 13px; text-decoration: none; }
+  .ust-bar a:hover { color: #fff; }
+
+  .icerik { display: flex; gap: 15px; padding: 15px; height: calc(100vh - 50px); }
+
+  .kolon { background: #16213e; border-radius: 8px; padding: 15px; overflow-y: auto; }
+  .kolon h2 { font-size: 14px; color: #a0a0b0; margin-bottom: 10px; }
+
+  .sol { width: 320px; flex-shrink: 0; }
+  .sag { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+  .form-grup { margin-bottom: 8px; }
+  .form-grup label { display: block; font-size: 11px; color: #a0a0b0; margin-bottom: 2px; }
+  .form-grup input, .form-grup select {
+    width: 100%; padding: 7px; background: #0f3460; border: 1px solid #1a3a6e;
+    color: #eee; border-radius: 4px; font-size: 12px;
+  }
+  .form-grup input:focus, .form-grup select:focus { outline: none; border-color: #e94560; }
+
+  .satir { display: flex; gap: 6px; }
+  .satir > * { flex: 1; }
+
+  .btn {
+    padding: 8px 14px; border: none; border-radius: 5px; cursor: pointer;
+    font-size: 12px; font-weight: bold; width: 100%;
+  }
+  .btn-ekle { background: #e94560; color: #fff; margin-top: 8px; }
+  .btn-ekle:hover { background: #c73652; }
+
+  .ayirici { border: none; border-top: 1px solid #0f3460; margin: 15px 0; }
+
+  .havuz-baslik { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .havuz-baslik h2 { margin-bottom: 0; }
+  .havuz-baslik span { font-size: 11px; color: #76b5c5; }
+
+  .teslimat-havuz {
+    min-height: 60px; border: 2px dashed #1a3a6e; border-radius: 6px; padding: 6px;
+    display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
+  }
+  .teslimat-havuz.drag-over { border-color: #e94560; background: rgba(233,69,96,0.05); }
+
+  .teslimat-chip {
+    background: #0f3460; padding: 6px 10px; border-radius: 5px; font-size: 11px;
+    cursor: grab; user-select: none; border: 1px solid #1a3a6e; position: relative;
+  }
+  .teslimat-chip:active { cursor: grabbing; }
+  .teslimat-chip.dragging { opacity: 0.4; }
+  .teslimat-chip .chip-isim { font-weight: bold; color: #fff; }
+  .teslimat-chip .chip-detay { color: #a0a0b0; font-size: 10px; }
+  .teslimat-chip .chip-sil {
+    position: absolute; top: -4px; right: -4px; background: #e94560; color: #fff;
+    border: none; border-radius: 50%; width: 14px; height: 14px; font-size: 9px;
+    cursor: pointer; display: none; line-height: 14px; text-align: center;
+  }
+  .teslimat-chip:hover .chip-sil { display: block; }
+
+  .arac-listesi { display: flex; gap: 10px; flex: 1; overflow-x: auto; }
+
+  .arac-kutu {
+    background: #16213e; border: 2px solid #0f3460; border-radius: 8px;
+    min-width: 220px; flex: 1; display: flex; flex-direction: column;
+  }
+  .arac-kutu.drag-over { border-color: #00e676; }
+  .arac-kutu.kapasite-asimi { border-color: #ff5252; }
+
+  .arac-baslik {
+    padding: 10px; border-bottom: 1px solid #0f3460; display: flex;
+    justify-content: space-between; align-items: center;
+  }
+  .arac-baslik .arac-isim { font-weight: bold; font-size: 13px; }
+  .arac-baslik .arac-tip { font-size: 10px; color: #76b5c5; }
+  .arac-baslik .arac-sil {
+    background: none; border: none; color: #e94560; cursor: pointer; font-size: 14px;
+  }
+
+  .arac-kapasite { padding: 8px 10px; font-size: 10px; color: #a0a0b0; border-bottom: 1px solid #0f3460; }
+  .kapasite-bar { height: 4px; background: #0f3460; border-radius: 2px; margin-top: 3px; }
+  .kapasite-bar-dolu { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .kapasite-bar-dolu.normal { background: #00e676; }
+  .kapasite-bar-dolu.uyari { background: #ffc107; }
+  .kapasite-bar-dolu.asimi { background: #ff5252; }
+
+  .arac-icerik {
+    flex: 1; padding: 8px; min-height: 80px; display: flex; flex-wrap: wrap;
+    gap: 6px; align-content: flex-start;
+  }
+  .arac-icerik.drag-over { background: rgba(0,230,118,0.05); }
+
+  .bos-mesaj { color: #555; font-size: 11px; width: 100%; text-align: center; padding: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="ust-bar">
+  <h1>TOROS - Filo Yonetimi</h1>
+  <a href="/">Rota Optimizasyonu</a>
+</div>
+
+<div class="icerik">
+  <div class="kolon sol">
+    <h2>Arac Ekle</h2>
+    <div class="form-grup">
+      <label>Arac Adi</label>
+      <input type="text" id="arac-adi" placeholder="Arac 1">
+    </div>
+    <div class="form-grup">
+      <label>Arac Tipi</label>
+      <select id="arac-tipi" onchange="tipDegisti()">
+        <option value="kamyon">Kamyon</option>
+        <option value="kamyonet" selected>Kamyonet</option>
+        <option value="ticari">Ticari</option>
+      </select>
+    </div>
+    <div class="satir">
+      <div class="form-grup">
+        <label>Max Agirlik (kg)</label>
+        <input type="number" id="arac-agirlik" value="3500">
+      </div>
+      <div class="form-grup">
+        <label>Max Hacim (m3)</label>
+        <input type="number" id="arac-hacim" value="15" step="0.1">
+      </div>
+    </div>
+    <button class="btn btn-ekle" onclick="aracEkle()">Arac Ekle</button>
+
+    <hr class="ayirici">
+
+    <h2>Teslimat Ekle</h2>
+    <div class="form-grup">
+      <label>Teslimat Adi</label>
+      <input type="text" id="tes-adi" placeholder="Kargo 1">
+    </div>
+    <div class="form-grup">
+      <label>Adres</label>
+      <input type="text" id="tes-adres" placeholder="Adres girin...">
+    </div>
+    <div class="satir">
+      <div class="form-grup">
+        <label>Agirlik (kg)</label>
+        <input type="number" id="tes-agirlik" value="5" step="0.1">
+      </div>
+      <div class="form-grup">
+        <label>Hacim (m3)</label>
+        <input type="number" id="tes-hacim" value="0.1" step="0.01">
+      </div>
+    </div>
+    <div class="form-grup">
+      <label>Termin Tarihi</label>
+      <input type="date" id="tes-termin">
+    </div>
+    <div class="form-grup">
+      <label>Randevu Saati (opsiyonel)</label>
+      <input type="time" id="tes-randevu">
+    </div>
+    <button class="btn btn-ekle" onclick="teslimatOlustur()">Teslimat Ekle</button>
+  </div>
+
+  <div class="sag">
+    <div class="kolon" style="flex-shrink:0;">
+      <div class="havuz-baslik">
+        <h2>Atanmamis Teslimatlar</h2>
+        <span id="havuz-sayac">0 teslimat</span>
+      </div>
+      <div class="teslimat-havuz" id="havuz"
+           ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="havuzaBirak(event)">
+        <div class="bos-mesaj" id="havuz-bos">Henuz teslimat eklenmedi</div>
+      </div>
+    </div>
+
+    <div style="flex-shrink:0;">
+      <h2 style="font-size:14px;color:#a0a0b0;margin-bottom:8px;">Araclar</h2>
+    </div>
+    <div class="arac-listesi" id="arac-listesi">
+      <div class="bos-mesaj" id="arac-bos" style="padding:40px;">Henuz arac eklenmedi</div>
+    </div>
+  </div>
+</div>
+
+<script>
+var aracSayac = 0;
+var teslimatSayac = 0;
+var araclar = {};
+var teslimatlar = {};
+var suruklenen = null;
+
+var tipPreset = {
+  kamyon:   { agirlik: 10000, hacim: 40 },
+  kamyonet: { agirlik: 3500,  hacim: 15 },
+  ticari:   { agirlik: 800,   hacim: 4 },
+};
+
+function tipDegisti() {
+  var tip = document.getElementById('arac-tipi').value;
+  document.getElementById('arac-agirlik').value = tipPreset[tip].agirlik;
+  document.getElementById('arac-hacim').value = tipPreset[tip].hacim;
+}
+
+function aracEkle() {
+  aracSayac++;
+  var id = 'arac-' + aracSayac;
+  var adi = document.getElementById('arac-adi').value || ('Arac ' + aracSayac);
+  var tip = document.getElementById('arac-tipi').value;
+  var maxAg = parseFloat(document.getElementById('arac-agirlik').value);
+  var maxHc = parseFloat(document.getElementById('arac-hacim').value);
+
+  araclar[id] = { adi: adi, tip: tip, maxAg: maxAg, maxHc: maxHc, teslimatlar: [] };
+
+  var div = document.createElement('div');
+  div.className = 'arac-kutu';
+  div.id = id;
+  div.innerHTML = ''
+    + '<div class="arac-baslik">'
+    + '  <div><span class="arac-isim">' + adi + '</span> <span class="arac-tip">' + tip + '</span></div>'
+    + '  <button class="arac-sil" onclick="aracSil(\'' + id + '\')">&times;</button>'
+    + '</div>'
+    + '<div class="arac-kapasite" id="' + id + '-kap">'
+    + '  Agirlik: 0 / ' + maxAg + ' kg'
+    + '  <div class="kapasite-bar"><div class="kapasite-bar-dolu normal" id="' + id + '-ag-bar" style="width:0%"></div></div>'
+    + '  Hacim: 0 / ' + maxHc + ' m3'
+    + '  <div class="kapasite-bar"><div class="kapasite-bar-dolu normal" id="' + id + '-hc-bar" style="width:0%"></div></div>'
+    + '</div>'
+    + '<div class="arac-icerik" id="' + id + '-icerik"'
+    + '  ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="aracaBirak(event,\'' + id + '\')">'
+    + '  <div class="bos-mesaj">Teslimat surukleyin</div>'
+    + '</div>';
+
+  document.getElementById('arac-listesi').appendChild(div);
+  document.getElementById('arac-bos').style.display = 'none';
+  document.getElementById('arac-adi').value = '';
+  filoyuKaydet();
+}
+
+function aracSil(id) {
+  var arac = araclar[id];
+  if (!arac) return;
+  arac.teslimatlar.forEach(function(tid) {
+    teslimatlar[tid].arac = null;
+    chipHavuzaEkle(tid);
+  });
+  delete araclar[id];
+  document.getElementById(id).remove();
+  if (Object.keys(araclar).length === 0) {
+    document.getElementById('arac-bos').style.display = 'block';
+  }
+  havuzSayacGuncelle();
+  filoyuKaydet();
+}
+
+function teslimatOlustur() {
+  teslimatSayac++;
+  var tid = 'tes-' + teslimatSayac;
+  var adi = document.getElementById('tes-adi').value || ('Kargo ' + teslimatSayac);
+  var adres = document.getElementById('tes-adres').value || '';
+  var ag = parseFloat(document.getElementById('tes-agirlik').value) || 0;
+  var hc = parseFloat(document.getElementById('tes-hacim').value) || 0;
+  var termin = document.getElementById('tes-termin').value || '';
+  var randevu = document.getElementById('tes-randevu').value || '';
+
+  teslimatlar[tid] = { adi: adi, adres: adres, ag: ag, hc: hc, termin: termin, randevu: randevu, arac: null };
+
+  chipHavuzaEkle(tid);
+  havuzSayacGuncelle();
+  filoyuKaydet();
+
+  document.getElementById('tes-adi').value = '';
+  document.getElementById('tes-adres').value = '';
+}
+
+function chipOlustur(tid) {
+  var t = teslimatlar[tid];
+  var detay = t.ag + 'kg, ' + t.hc + 'm3';
+  if (t.termin) detay += ' | ' + t.termin;
+  if (t.randevu) detay += ' ' + t.randevu;
+
+  var chip = document.createElement('div');
+  chip.className = 'teslimat-chip';
+  chip.id = 'chip-' + tid;
+  chip.draggable = true;
+  chip.dataset.tid = tid;
+  chip.innerHTML = '<span class="chip-isim">' + t.adi + '</span><br>'
+    + '<span class="chip-detay">' + detay + '</span>'
+    + '<button class="chip-sil" onclick="teslimatSil(\'' + tid + '\')">&times;</button>';
+
+  chip.addEventListener('dragstart', function(e) {
+    suruklenen = tid;
+    chip.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  chip.addEventListener('dragend', function() {
+    chip.classList.remove('dragging');
+    suruklenen = null;
+  });
+
+  return chip;
+}
+
+function chipHavuzaEkle(tid) {
+  var havuz = document.getElementById('havuz');
+  var bos = document.getElementById('havuz-bos');
+  if (bos) bos.style.display = 'none';
+  var eski = document.getElementById('chip-' + tid);
+  if (eski) eski.remove();
+  havuz.appendChild(chipOlustur(tid));
+}
+
+function teslimatSil(tid) {
+  var t = teslimatlar[tid];
+  if (!t) return;
+  if (t.arac && araclar[t.arac]) {
+    var idx = araclar[t.arac].teslimatlar.indexOf(tid);
+    if (idx > -1) araclar[t.arac].teslimatlar.splice(idx, 1);
+    kapasiteGuncelle(t.arac);
+  }
+  delete teslimatlar[tid];
+  var chip = document.getElementById('chip-' + tid);
+  if (chip) chip.remove();
+  havuzSayacGuncelle();
+  filoyuKaydet();
+}
+
+function dragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+
+function dragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function aracaBirak(e, aracId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!suruklenen) return;
+
+  var tid = suruklenen;
+  var t = teslimatlar[tid];
+  var arac = araclar[aracId];
+
+  if (t.arac && t.arac !== aracId && araclar[t.arac]) {
+    var idx = araclar[t.arac].teslimatlar.indexOf(tid);
+    if (idx > -1) araclar[t.arac].teslimatlar.splice(idx, 1);
+    kapasiteGuncelle(t.arac);
+  }
+
+  if (t.arac !== aracId) {
+    t.arac = aracId;
+    if (arac.teslimatlar.indexOf(tid) === -1) arac.teslimatlar.push(tid);
+  }
+
+  var chip = document.getElementById('chip-' + tid);
+  if (chip) chip.remove();
+
+  var icerik = document.getElementById(aracId + '-icerik');
+  var bos = icerik.querySelector('.bos-mesaj');
+  if (bos) bos.remove();
+  icerik.appendChild(chipOlustur(tid));
+
+  kapasiteGuncelle(aracId);
+  havuzSayacGuncelle();
+  filoyuKaydet();
+}
+
+function havuzaBirak(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!suruklenen) return;
+
+  var tid = suruklenen;
+  var t = teslimatlar[tid];
+
+  if (t.arac && araclar[t.arac]) {
+    var idx = araclar[t.arac].teslimatlar.indexOf(tid);
+    if (idx > -1) araclar[t.arac].teslimatlar.splice(idx, 1);
+    kapasiteGuncelle(t.arac);
+  }
+
+  t.arac = null;
+  var chip = document.getElementById('chip-' + tid);
+  if (chip) chip.remove();
+  chipHavuzaEkle(tid);
+  havuzSayacGuncelle();
+  filoyuKaydet();
+}
+
+function kapasiteGuncelle(aracId) {
+  var arac = araclar[aracId];
+  if (!arac) return;
+
+  var topAg = 0, topHc = 0;
+  arac.teslimatlar.forEach(function(tid) {
+    topAg += teslimatlar[tid].ag;
+    topHc += teslimatlar[tid].hc;
+  });
+
+  var agOran = (topAg / arac.maxAg) * 100;
+  var hcOran = (topHc / arac.maxHc) * 100;
+
+  var agSinif = agOran > 100 ? 'asimi' : agOran > 80 ? 'uyari' : 'normal';
+  var hcSinif = hcOran > 100 ? 'asimi' : hcOran > 80 ? 'uyari' : 'normal';
+
+  var kap = document.getElementById(aracId + '-kap');
+  kap.innerHTML = ''
+    + 'Agirlik: ' + topAg.toFixed(1) + ' / ' + arac.maxAg + ' kg'
+    + '<div class="kapasite-bar"><div class="kapasite-bar-dolu ' + agSinif + '" style="width:' + Math.min(agOran, 100) + '%"></div></div>'
+    + 'Hacim: ' + topHc.toFixed(2) + ' / ' + arac.maxHc + ' m3'
+    + '<div class="kapasite-bar"><div class="kapasite-bar-dolu ' + hcSinif + '" style="width:' + Math.min(hcOran, 100) + '%"></div></div>';
+
+  var kutu = document.getElementById(aracId);
+  kutu.classList.toggle('kapasite-asimi', agOran > 100 || hcOran > 100);
+
+  var icerik = document.getElementById(aracId + '-icerik');
+  if (arac.teslimatlar.length === 0 && !icerik.querySelector('.bos-mesaj')) {
+    var bos = document.createElement('div');
+    bos.className = 'bos-mesaj';
+    bos.textContent = 'Teslimat surukleyin';
+    icerik.appendChild(bos);
+  }
+}
+
+function havuzSayacGuncelle() {
+  var havuz = document.getElementById('havuz');
+  var sayi = havuz.querySelectorAll('.teslimat-chip').length;
+  document.getElementById('havuz-sayac').textContent = sayi + ' teslimat';
+  var bos = document.getElementById('havuz-bos');
+  if (sayi === 0 && Object.keys(teslimatlar).length === 0) {
+    if (!bos) {
+      var yeni = document.createElement('div');
+      yeni.className = 'bos-mesaj';
+      yeni.id = 'havuz-bos';
+      yeni.textContent = 'Henuz teslimat eklenmedi';
+      havuz.appendChild(yeni);
+    } else {
+      bos.style.display = 'block';
+    }
+  } else if (bos) {
+    bos.style.display = 'none';
+  }
+}
+
+var bugun = new Date().toISOString().slice(0, 10);
+document.getElementById('tes-termin').value = bugun;
+
+function filoyuKaydet() {
+  var veri = { araclar: {}, teslimatlar: {} };
+  Object.keys(araclar).forEach(function(id) {
+    var a = araclar[id];
+    veri.araclar[id] = { adi: a.adi, tip: a.tip, maxAg: a.maxAg, maxHc: a.maxHc, teslimatlar: a.teslimatlar.slice() };
+  });
+  Object.keys(teslimatlar).forEach(function(tid) {
+    var t = teslimatlar[tid];
+    veri.teslimatlar[tid] = { adi: t.adi, adres: t.adres, ag: t.ag, hc: t.hc, termin: t.termin, randevu: t.randevu, arac: t.arac };
+  });
+  localStorage.setItem('toros_filo', JSON.stringify(veri));
+}
+</script>
+</body>
+</html>

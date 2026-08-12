@@ -24,6 +24,11 @@ def anasayfa():
     return send_file("templates/index.html")
 
 
+@app.route("/filo")
+def filo():
+    return send_file("templates/filo.html")
+
+
 @app.route("/geocode", methods=["POST"])
 def geocode():
     adres = request.json.get("adres", "")
