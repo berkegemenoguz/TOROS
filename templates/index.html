@@ -38,10 +38,6 @@
   }
   .teslimat-karti .satir { display: flex; gap: 6px; margin-bottom: 4px; }
   .teslimat-karti .satir input { flex: 1; }
-  .teslimat-karti .pencere-toggle {
-    font-size: 11px; color: #76b5c5; cursor: pointer; margin-top: 4px;
-  }
-  .teslimat-karti .pencere-alan { margin-top: 6px; }
 
   .btn {
     padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer;
@@ -158,7 +154,7 @@
       </div>
       <div class="sonuc-kutu">
         <div class="deger" id="s-sure">-</div>
-        <div class="etiket">Trafikli</div>
+        <div class="etiket">Toplam Sure</div>
       </div>
       <div class="sonuc-kutu">
         <div class="deger" id="s-teslimat">-</div>
@@ -234,12 +230,8 @@ function teslimatEkle(isim, lat, lon) {
     + '<div class="form-grup"><label>Lat</label><input type="number" class="t-lat" step="0.0001" value="' + (lat || '') + '"></div>'
     + '<div class="form-grup"><label>Lon</label><input type="number" class="t-lon" step="0.0001" value="' + (lon || '') + '"></div>'
     + '</div>'
-    + '<div class="pencere-toggle" onclick="pencereToggle(' + id + ')">+ Zaman penceresi ekle</div>'
-    + '<div class="pencere-alan" id="pencere-' + id + '" style="display:none">'
-    + '<div class="satir">'
-    + '<div class="form-grup"><label>Baslangic</label><input type="datetime-local" class="t-pencere-bas"></div>'
-    + '<div class="form-grup"><label>Bitis</label><input type="datetime-local" class="t-pencere-son"></div>'
-    + '</div></div>';
+    + '<input type="hidden" class="t-pencere-bas">'
+    + '<input type="hidden" class="t-pencere-son">';
   document.getElementById('teslimat-listesi').appendChild(div);
 }
 
@@ -255,11 +247,6 @@ function teslimatAdresiAra(id) {
 function teslimatSil(id) {
   var el = document.getElementById('teslimat-' + id);
   if (el) el.remove();
-}
-
-function pencereToggle(id) {
-  var el = document.getElementById('pencere-' + id);
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 function veriTopla() {
@@ -396,7 +383,8 @@ function haritaCiz(veri, sonuc) {
 
 function sonucGoster(sonuc) {
   document.getElementById('s-mesafe').textContent = sonuc.toplam_mesafe;
-  document.getElementById('s-sure').textContent = sonuc.toplam_trafik;
+  var teslimatDkToplam = sonuc.isimler.length * 15;
+  document.getElementById('s-sure').textContent = sonuc.toplam_trafik + ' + ' + teslimatDkToplam + 'dk';
   document.getElementById('s-teslimat').textContent = sonuc.isimler.length;
 
   var depoyaDon = document.getElementById('depoya-don').checked;
@@ -515,7 +503,26 @@ function aracSec(aracId, filo) {
     var kart = document.getElementById('teslimat-' + sayac);
     var kartId = sayac;
 
-    if (t.adres) {
+    if (t.lat && t.lon) {
+      kart.querySelector('.t-adres').value = t.adres || '';
+      kart.querySelector('.t-lat').value = t.lat.toFixed(4);
+      kart.querySelector('.t-lon').value = t.lon.toFixed(4);
+      kart.querySelector('.t-adres').style.borderColor = '#00e676';
+
+      var marker = L.marker([t.lat, t.lon], {
+        icon: L.divIcon({
+          html: '<div style="background:#e94560;color:#fff;padding:3px 7px;border-radius:10px;font-size:11px;white-space:nowrap;">' + t.adi + '</div>',
+          className: '',
+        })
+      }).addTo(map);
+      markerlar.push(marker);
+
+      geocodeBiten++;
+      if (geocodeBiten === bekleyen) {
+        var bounds = L.latLngBounds(markerlar.map(function(m) { return m.getLatLng(); }));
+        map.fitBounds(bounds, {padding: [40, 40]});
+      }
+    } else if (t.adres) {
       kart.querySelector('.t-adres').value = t.adres;
 
       fetch('/geocode', {
@@ -551,17 +558,9 @@ function aracSec(aracId, filo) {
       bekleyen--;
     }
 
-    if (t.randevu && t.termin) {
-      var pencereEl = document.getElementById('pencere-' + kartId);
-      if (pencereEl) {
-        pencereEl.style.display = 'block';
-        var basVal = t.termin + 'T' + t.randevu;
-        var randevuDate = new Date(basVal);
-        randevuDate.setHours(randevuDate.getHours() + 1);
-        var sonVal = t.termin + 'T' + randevuDate.toTimeString().slice(0, 5);
-        kart.querySelector('.t-pencere-bas').value = basVal;
-        kart.querySelector('.t-pencere-son').value = sonVal;
-      }
+    if (t.randevuBas && t.randevuSon && t.termin) {
+      kart.querySelector('.t-pencere-bas').value = t.termin + 'T' + t.randevuBas;
+      kart.querySelector('.t-pencere-son').value = t.termin + 'T' + t.randevuSon;
     }
   });
 }

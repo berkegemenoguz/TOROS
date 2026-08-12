@@ -159,9 +159,15 @@
       <label>Termin Tarihi</label>
       <input type="date" id="tes-termin">
     </div>
-    <div class="form-grup">
-      <label>Randevu Saati (opsiyonel)</label>
-      <input type="time" id="tes-randevu">
+    <div class="satir">
+      <div class="form-grup">
+        <label>Randevu Baslangic (ops.)</label>
+        <input type="time" id="tes-randevu-bas">
+      </div>
+      <div class="form-grup">
+        <label>Randevu Bitis (ops.)</label>
+        <input type="time" id="tes-randevu-son">
+      </div>
     </div>
     <button class="btn btn-ekle" onclick="teslimatOlustur()">Teslimat Ekle</button>
   </div>
@@ -270,23 +276,51 @@ function teslimatOlustur() {
   var ag = parseFloat(document.getElementById('tes-agirlik').value) || 0;
   var hc = parseFloat(document.getElementById('tes-hacim').value) || 0;
   var termin = document.getElementById('tes-termin').value || '';
-  var randevu = document.getElementById('tes-randevu').value || '';
+  var randevuBas = document.getElementById('tes-randevu-bas').value || '';
+  var randevuSon = document.getElementById('tes-randevu-son').value || '';
 
-  teslimatlar[tid] = { adi: adi, adres: adres, ag: ag, hc: hc, termin: termin, randevu: randevu, arac: null };
+  var btn = document.querySelector('.btn-ekle:last-of-type');
+  btn.disabled = true;
+  btn.textContent = 'Konum aliniyor...';
 
-  chipHavuzaEkle(tid);
-  havuzSayacGuncelle();
-  filoyuKaydet();
+  fetch('/geocode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ adres: adres })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(veri) {
+    btn.disabled = false;
+    btn.textContent = 'Teslimat Ekle';
 
-  document.getElementById('tes-adi').value = '';
-  document.getElementById('tes-adres').value = '';
+    if (veri.hata) {
+      alert(veri.hata);
+      teslimatSayac--;
+      return;
+    }
+
+    teslimatlar[tid] = { adi: adi, adres: veri.adres, ag: ag, hc: hc, termin: termin, randevuBas: randevuBas, randevuSon: randevuSon, arac: null, lat: veri.lat, lon: veri.lon };
+
+    chipHavuzaEkle(tid);
+    havuzSayacGuncelle();
+    filoyuKaydet();
+
+    document.getElementById('tes-adi').value = '';
+    document.getElementById('tes-adres').value = '';
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = 'Teslimat Ekle';
+    alert('Geocoding hatasi olustu');
+    teslimatSayac--;
+  });
 }
 
 function chipOlustur(tid) {
   var t = teslimatlar[tid];
   var detay = t.ag + 'kg, ' + t.hc + 'm3';
   if (t.termin) detay += ' | ' + t.termin;
-  if (t.randevu) detay += ' ' + t.randevu;
+  if (t.randevuBas && t.randevuSon) detay += ' ' + t.randevuBas + '-' + t.randevuSon;
 
   var chip = document.createElement('div');
   chip.className = 'teslimat-chip';
@@ -525,7 +559,7 @@ function filoyuKaydet() {
   });
   Object.keys(teslimatlar).forEach(function(tid) {
     var t = teslimatlar[tid];
-    veri.teslimatlar[tid] = { adi: t.adi, adres: t.adres, ag: t.ag, hc: t.hc, termin: t.termin, randevu: t.randevu, arac: t.arac };
+    veri.teslimatlar[tid] = { adi: t.adi, adres: t.adres, ag: t.ag, hc: t.hc, termin: t.termin, randevuBas: t.randevuBas || '', randevuSon: t.randevuSon || '', arac: t.arac, lat: t.lat || null, lon: t.lon || null };
   });
   localStorage.setItem('toros_filo', JSON.stringify(veri));
 }

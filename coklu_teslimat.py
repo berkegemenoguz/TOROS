@@ -342,11 +342,9 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
 
         varis_zamanlari.append(suan.strftime("%H:%M"))
 
-        son_bacak_mi = (i == len(tum_bacaklar_raw) - 1 and depoya_don) or (i == len(tum_bacaklar_raw) - 1 and not depoya_don)
         depoya_donus_bacagi = depoya_don and i == len(tum_bacaklar_raw) - 1
         if not depoya_donus_bacagi:
             suan = suan + timedelta(seconds=TESLIMAT_SURESI)
-            toplam_trafik += TESLIMAT_SURESI
 
         bacaklar.append({
             "sira": i,
