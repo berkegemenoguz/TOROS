@@ -451,6 +451,67 @@ function havuzSayacGuncelle() {
 var bugun = new Date().toISOString().slice(0, 10);
 document.getElementById('tes-termin').value = bugun;
 
+function filoyuYukle() {
+  var kayitli = localStorage.getItem('toros_filo');
+  if (!kayitli) return;
+  var veri = JSON.parse(kayitli);
+
+  Object.keys(veri.teslimatlar).forEach(function(tid) {
+    teslimatlar[tid] = veri.teslimatlar[tid];
+    var numara = parseInt(tid.replace('tes-', ''));
+    if (numara >= teslimatSayac) teslimatSayac = numara;
+  });
+
+  Object.keys(veri.araclar).forEach(function(id) {
+    var a = veri.araclar[id];
+    var numara = parseInt(id.replace('arac-', ''));
+    if (numara >= aracSayac) aracSayac = numara;
+
+    araclar[id] = { adi: a.adi, tip: a.tip, maxAg: a.maxAg, maxHc: a.maxHc, teslimatlar: a.teslimatlar.slice() };
+
+    var div = document.createElement('div');
+    div.className = 'arac-kutu';
+    div.id = id;
+    div.innerHTML = ''
+      + '<div class="arac-baslik">'
+      + '  <div><span class="arac-isim">' + a.adi + '</span> <span class="arac-tip">' + a.tip + '</span></div>'
+      + '  <button class="arac-sil" onclick="aracSil(\'' + id + '\')">&times;</button>'
+      + '</div>'
+      + '<div class="arac-kapasite" id="' + id + '-kap">'
+      + '  Agirlik: 0 / ' + a.maxAg + ' kg'
+      + '  <div class="kapasite-bar"><div class="kapasite-bar-dolu normal" id="' + id + '-ag-bar" style="width:0%"></div></div>'
+      + '  Hacim: 0 / ' + a.maxHc + ' m3'
+      + '  <div class="kapasite-bar"><div class="kapasite-bar-dolu normal" id="' + id + '-hc-bar" style="width:0%"></div></div>'
+      + '</div>'
+      + '<div class="arac-icerik" id="' + id + '-icerik"'
+      + '  ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="aracaBirak(event,\'' + id + '\')">'
+      + '  <div class="bos-mesaj">Teslimat surukleyin</div>'
+      + '</div>';
+
+    document.getElementById('arac-listesi').appendChild(div);
+    document.getElementById('arac-bos').style.display = 'none';
+
+    a.teslimatlar.forEach(function(tid) {
+      var icerik = document.getElementById(id + '-icerik');
+      var bos = icerik.querySelector('.bos-mesaj');
+      if (bos) bos.remove();
+      icerik.appendChild(chipOlustur(tid));
+    });
+
+    kapasiteGuncelle(id);
+  });
+
+  Object.keys(teslimatlar).forEach(function(tid) {
+    if (!teslimatlar[tid].arac) {
+      chipHavuzaEkle(tid);
+    }
+  });
+
+  havuzSayacGuncelle();
+}
+
+filoyuYukle();
+
 function filoyuKaydet() {
   var veri = { araclar: {}, teslimatlar: {} };
   Object.keys(araclar).forEach(function(id) {
