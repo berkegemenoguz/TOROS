@@ -29,15 +29,16 @@
 
   .teslimat-listesi { margin-bottom: 15px; }
   .teslimat-karti {
-    background: #0f3460; padding: 10px; border-radius: 6px; margin-bottom: 8px;
-    position: relative;
+    background: #0f3460; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px;
+    position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
   .teslimat-karti .sil-btn {
-    position: absolute; top: 6px; right: 8px; background: none; border: none;
-    color: #e94560; cursor: pointer; font-size: 16px;
+    background: none; border: none;
+    color: #e94560; cursor: pointer; font-size: 16px; flex-shrink: 0;
   }
-  .teslimat-karti .satir { display: flex; gap: 6px; margin-bottom: 4px; }
-  .teslimat-karti .satir input { flex: 1; }
+  .teslimat-karti .form-grup { margin-bottom: 0; }
+  .teslimat-karti .form-grup label { font-size: 10px; margin-bottom: 1px; }
+  .teslimat-karti .form-grup input { padding: 3px 6px; font-size: 12px; }
 
   .btn {
     padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer;
@@ -217,15 +218,13 @@ function teslimatEkle(isim, lat, lon) {
   div.className = 'teslimat-karti';
   div.id = 'teslimat-' + id;
   div.innerHTML = ''
+    + '<div class="form-grup" style="flex:0 0 auto;min-width:80px;"><label>Isim</label>'
+    + '<input type="text" class="t-isim" value="' + (isim || 'Teslimat ' + id) + '" readonly></div>'
+    + '<div class="form-grup" style="flex:1;"><label>Adres</label>'
+    + '<input type="text" class="t-adres" placeholder="Adres" readonly></div>'
     + '<button class="sil-btn" onclick="teslimatSil(' + id + ')">&times;</button>'
-    + '<div class="form-grup"><label>Adres</label>'
-    + '<input type="text" class="t-adres" placeholder="Adres girin..." readonly></div>'
-    + '<div class="form-grup"><label>Isim</label>'
-    + '<input type="text" class="t-isim" value="' + (isim || 'Teslimat ' + id) + '"></div>'
-    + '<div class="satir">'
-    + '<div class="form-grup"><label>Lat</label><input type="number" class="t-lat" step="0.0001" value="' + (lat || '') + '"></div>'
-    + '<div class="form-grup"><label>Lon</label><input type="number" class="t-lon" step="0.0001" value="' + (lon || '') + '"></div>'
-    + '</div>'
+    + '<input type="hidden" class="t-lat" value="' + (lat || '') + '">'
+    + '<input type="hidden" class="t-lon" value="' + (lon || '') + '">'
     + '<input type="hidden" class="t-pencere-bas">'
     + '<input type="hidden" class="t-pencere-son">';
   document.getElementById('teslimat-listesi').appendChild(div);
