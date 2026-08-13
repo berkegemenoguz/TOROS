@@ -147,11 +147,7 @@
     </div>
     <div class="form-grup">
       <label>Adres</label>
-      <div style="display:flex;gap:6px;">
-        <input type="text" id="tes-adres" placeholder="Adres girin..." style="flex:1;">
-        <button class="btn" style="width:auto;padding:7px 12px;background:#0f3460;color:#76b5c5;" onclick="adresAra()">Ara</button>
-      </div>
-      <div id="adres-sonuc" style="font-size:11px;color:#76b5c5;margin-top:4px;"></div>
+      <input type="text" id="tes-adres" placeholder="Adres girin...">
     </div>
     <div class="satir">
       <div class="form-grup">
@@ -204,7 +200,6 @@
 <script>
 var araclar = {};
 var teslimatlar = {};
-var sonGeocode = null;
 var suruklenen = null;
 
 var tipPreset = {
@@ -219,36 +214,6 @@ function tipDegisti() {
   document.getElementById('arac-hacim').value = tipPreset[tip].hacim;
 }
 
-function adresAra() {
-  var adres = document.getElementById('tes-adres').value.trim();
-  if (!adres) return;
-  var sonucEl = document.getElementById('adres-sonuc');
-  sonucEl.textContent = 'Araniyor...';
-  sonucEl.style.color = '#76b5c5';
-
-  fetch('/geocode', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ adres: adres })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(veri) {
-    if (veri.hata) {
-      sonucEl.textContent = veri.hata;
-      sonucEl.style.color = '#e94560';
-      sonGeocode = null;
-    } else {
-      sonucEl.textContent = veri.adres + ' (' + veri.lat.toFixed(4) + ', ' + veri.lon.toFixed(4) + ')';
-      sonucEl.style.color = '#00e676';
-      sonGeocode = { lat: veri.lat, lon: veri.lon, adres: veri.adres };
-    }
-  })
-  .catch(function() {
-    sonucEl.textContent = 'Geocoding hatasi';
-    sonucEl.style.color = '#e94560';
-    sonGeocode = null;
-  });
-}
 
 function aracKutuOlustur(id, adi, tip, maxAg, maxHc, plaka) {
   var div = document.createElement('div');
@@ -333,51 +298,32 @@ function teslimatOlustur() {
   var randevuBas = document.getElementById('tes-randevu-bas').value || '';
   var randevuSon = document.getElementById('tes-randevu-son').value || '';
 
-  function kaydet(geo) {
-    fetch('/api/teslimatlar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        adi: adi, adres: geo.adres, lat: geo.lat, lon: geo.lon,
-        agirlik: ag, hacim: hc,
-        termin_tarihi: termin || null,
-        randevu_bas: randevuBas || null,
-        randevu_son: randevuSon || null
-      })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(veri) {
-      var tid = veri.id;
-      teslimatlar[tid] = { adi: adi, adres: geo.adres, ag: ag, hc: hc, termin: termin, randevuBas: randevuBas, randevuSon: randevuSon, arac_id: null, lat: geo.lat, lon: geo.lon };
-      chipHavuzaEkle(tid);
-      havuzSayacGuncelle();
-      document.getElementById('tes-adi').value = '';
-      document.getElementById('tes-adres').value = '';
-      document.getElementById('adres-sonuc').textContent = '';
-      sonGeocode = null;
-    });
-  }
-
-  if (sonGeocode) {
-    kaydet(sonGeocode);
-    return;
-  }
-
   var btn = document.querySelector('.btn-ekle:last-of-type');
   btn.disabled = true;
   btn.textContent = 'Konum aliniyor...';
 
-  fetch('/geocode', {
+  fetch('/api/teslimatlar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ adres: adres })
+    body: JSON.stringify({
+      adi: adi, adres: adres,
+      agirlik: ag, hacim: hc,
+      termin_tarihi: termin || null,
+      randevu_bas: randevuBas || null,
+      randevu_son: randevuSon || null
+    })
   })
   .then(function(r) { return r.json(); })
   .then(function(veri) {
     btn.disabled = false;
     btn.textContent = 'Teslimat Ekle';
     if (veri.hata) { alert(veri.hata); return; }
-    kaydet(veri);
+    var tid = veri.id;
+    teslimatlar[tid] = { adi: adi, adres: adres, ag: ag, hc: hc, termin: termin, randevuBas: randevuBas, randevuSon: randevuSon, arac_id: null };
+    chipHavuzaEkle(tid);
+    havuzSayacGuncelle();
+    document.getElementById('tes-adi').value = '';
+    document.getElementById('tes-adres').value = '';
   })
   .catch(function() {
     btn.disabled = false;

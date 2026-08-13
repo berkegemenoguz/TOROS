@@ -115,25 +115,76 @@ def teslimat_listele():
     } for r in rows])
 
 
-@app.route("/api/teslimatlar", methods=["POST"])
-def teslimat_olustur():
-    v = request.json
-    session = Session()
+def adres_geocode(adres):
+    resp = requests.get(GEOCODE_URL, params={
+        "address": adres, "key": API_KEY, "region": "tr", "language": "tr",
+    })
+    veri = resp.json()
+    if veri["status"] != "OK" or not veri["results"]:
+        return None
+    loc = veri["results"][0]["geometry"]["location"]
+    if not istanbul_ici_mi(loc["lat"], loc["lng"]):
+        return None
+    return {"lat": loc["lat"], "lon": loc["lng"], "adres": veri["results"][0]["formatted_address"]}
+
+
+def teslimat_kaydet(v, session):
+    lat = v.get("lat")
+    lon = v.get("lon")
+    adres = v.get("adres", "")
+
+    if not lat or not lon:
+        if not adres:
+            return None, "Adres veya koordinat gerekli"
+        geo = adres_geocode(adres)
+        if not geo:
+            return None, "Adres bulunamadi veya Istanbul disinda"
+        lat, lon, adres = geo["lat"], geo["lon"], geo["adres"]
+
     result = session.execute(text(
         "INSERT INTO teslimatlar (adi, adres, lat, lon, agirlik, hacim, termin_tarihi, randevu_bas, randevu_son) "
         "VALUES (:adi, :adres, :lat, :lon, :ag, :hc, :termin, :rbas, :rson) RETURNING id"
     ), {
-        "adi": v["adi"], "adres": v["adres"],
-        "lat": v.get("lat"), "lon": v.get("lon"),
+        "adi": v["adi"], "adres": adres,
+        "lat": lat, "lon": lon,
         "ag": v.get("agirlik", 0), "hc": v.get("hacim", 0),
         "termin": v.get("termin_tarihi") or None,
         "rbas": v.get("randevu_bas") or None,
         "rson": v.get("randevu_son") or None,
     })
+    return result.fetchone().id, None
+
+
+@app.route("/api/teslimatlar", methods=["POST"])
+def teslimat_olustur():
+    v = request.json
+    session = Session()
+    yeni_id, hata = teslimat_kaydet(v, session)
+    if hata:
+        session.close()
+        return jsonify({"hata": hata}), 400
     session.commit()
-    yeni_id = result.fetchone().id
     session.close()
     return jsonify({"id": yeni_id})
+
+
+@app.route("/api/teslimatlar/bulk", methods=["POST"])
+def teslimat_bulk():
+    liste = request.json
+    if not isinstance(liste, list):
+        return jsonify({"hata": "Liste bekleniyor"}), 400
+    session = Session()
+    sonuclar = []
+    hatalar = []
+    for i, v in enumerate(liste):
+        yeni_id, hata = teslimat_kaydet(v, session)
+        if hata:
+            hatalar.append({"index": i, "adi": v.get("adi", ""), "hata": hata})
+        else:
+            sonuclar.append({"index": i, "id": yeni_id})
+    session.commit()
+    session.close()
+    return jsonify({"basarili": sonuclar, "hatalar": hatalar})
 
 
 @app.route("/api/teslimatlar/<int:tes_id>", methods=["PUT"])
