@@ -88,6 +88,33 @@ def arac_olustur():
     return jsonify({"id": yeni_id})
 
 
+@app.route("/api/araclar/bulk", methods=["POST"])
+def arac_bulk():
+    liste = request.json
+    if not isinstance(liste, list):
+        return jsonify({"hata": "Liste bekleniyor"}), 400
+    session = Session()
+    sonuclar = []
+    hatalar = []
+    for i, v in enumerate(liste):
+        plaka = v.get("plaka", "").strip()
+        if not plaka:
+            hatalar.append({"index": i, "adi": v.get("adi", ""), "hata": "Plaka zorunludur"})
+            continue
+        tip = v.get("tip", "kamyonet")
+        if tip not in ("kamyon", "kamyonet", "ticari"):
+            hatalar.append({"index": i, "adi": v.get("adi", ""), "hata": "Gecersiz tip"})
+            continue
+        result = session.execute(text(
+            "INSERT INTO araclar (adi, tip, max_agirlik, max_hacim, plaka) "
+            "VALUES (:adi, :tip, :ag, :hc, :plaka) RETURNING id"
+        ), {"adi": v.get("adi", "Arac"), "tip": tip, "ag": v.get("max_agirlik", 0), "hc": v.get("max_hacim", 0), "plaka": plaka})
+        sonuclar.append({"index": i, "id": result.fetchone().id})
+    session.commit()
+    session.close()
+    return jsonify({"basarili": sonuclar, "hatalar": hatalar})
+
+
 @app.route("/api/araclar/<int:arac_id>", methods=["DELETE"])
 def arac_sil(arac_id):
     session = Session()
