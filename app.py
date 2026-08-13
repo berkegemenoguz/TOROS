@@ -228,6 +228,80 @@ def teslimat_guncelle(tes_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/dagit", methods=["POST"])
+def otomatik_dagit():
+    import math
+
+    session = Session()
+    araclar = session.execute(text("SELECT * FROM araclar WHERE aktif = TRUE ORDER BY max_agirlik DESC")).fetchall()
+    teslimatlar = session.execute(text("SELECT * FROM teslimatlar WHERE arac_id IS NULL AND lat IS NOT NULL AND lon IS NOT NULL ORDER BY id")).fetchall()
+    depo = session.execute(text("SELECT * FROM depolar ORDER BY id LIMIT 1")).fetchone()
+
+    if not araclar:
+        session.close()
+        return jsonify({"hata": "Aktif arac bulunamadi"}), 400
+    if not teslimatlar:
+        session.close()
+        return jsonify({"hata": "Atanmamis teslimat bulunamadi"}), 400
+
+    depo_lat = float(depo.lat) if depo else 40.98
+    depo_lon = float(depo.lon) if depo else 28.872
+
+    tes_listesi = []
+    for t in teslimatlar:
+        aci = math.atan2(float(t.lon) - depo_lon, float(t.lat) - depo_lat)
+        tes_listesi.append({"id": t.id, "ag": float(t.agirlik), "hc": float(t.hacim), "aci": aci})
+    tes_listesi.sort(key=lambda x: x["aci"])
+
+    toplam_tes = len(tes_listesi)
+    n_arac = len(araclar)
+    esit_pay = toplam_tes // n_arac
+    kalan = toplam_tes % n_arac
+    arac_bilgi = []
+    for i, a in enumerate(araclar):
+        arac_bilgi.append({
+            "id": a.id, "max_ag": float(a.max_agirlik), "max_hc": float(a.max_hacim),
+            "kalan_ag": float(a.max_agirlik), "kalan_hc": float(a.max_hacim),
+            "hedef_adet": esit_pay + (1 if i < kalan else 0),
+            "teslimatlar": []
+        })
+
+    arac_idx = 0
+    for t in tes_listesi:
+        atandi = False
+        for deneme in range(len(arac_bilgi)):
+            a = arac_bilgi[(arac_idx + deneme) % len(arac_bilgi)]
+            if t["ag"] <= a["kalan_ag"] and t["hc"] <= a["kalan_hc"]:
+                a["teslimatlar"].append(t["id"])
+                a["kalan_ag"] -= t["ag"]
+                a["kalan_hc"] -= t["hc"]
+                if len(a["teslimatlar"]) >= a["hedef_adet"]:
+                    arac_idx = (arac_idx + deneme + 1) % len(arac_bilgi)
+                atandi = True
+                break
+        if not atandi:
+            for a in arac_bilgi:
+                if t["ag"] <= a["kalan_ag"] and t["hc"] <= a["kalan_hc"]:
+                    a["teslimatlar"].append(t["id"])
+                    a["kalan_ag"] -= t["ag"]
+                    a["kalan_hc"] -= t["hc"]
+                    break
+
+    atamalar = {}
+    for a in arac_bilgi:
+        atamalar[a["id"]] = a["teslimatlar"]
+        for tid in a["teslimatlar"]:
+            session.execute(text(
+                "UPDATE teslimatlar SET arac_id = :arac_id, durum = 'atandi' WHERE id = :tid"
+            ), {"arac_id": a["id"], "tid": tid})
+
+    session.commit()
+    session.close()
+
+    sonuc = {str(k): v for k, v in atamalar.items()}
+    return jsonify({"atamalar": sonuc})
+
+
 @app.route("/api/teslimatlar/<int:tes_id>", methods=["DELETE"])
 def teslimat_sil_api(tes_id):
     session = Session()

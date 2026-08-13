@@ -181,6 +181,7 @@
       <div class="havuz-baslik">
         <h2>Atanmamis Teslimatlar</h2>
         <span id="havuz-sayac">0 teslimat</span>
+        <button class="btn" style="padding:5px 12px;font-size:11px;background:#0f3460;color:#76b5c5;margin-left:auto;" onclick="otomatikDagit()">Otomatik Dagit</button>
       </div>
       <div class="teslimat-havuz" id="havuz"
            ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="havuzaBirak(event)">
@@ -520,6 +521,20 @@ function havuzSayacGuncelle() {
 
 var bugun = new Date().toISOString().slice(0, 10);
 document.getElementById('tes-termin').value = bugun;
+
+function otomatikDagit() {
+  if (!confirm('Atanmamis teslimatlar araclara otomatik dagitilacak. Devam edilsin mi?')) return;
+  fetch('/api/dagit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(veri) {
+    if (veri.hata) { alert(veri.hata); return; }
+    filoyuYukle();
+  })
+  .catch(function() { alert('Dagitim hatasi olustu'); });
+}
 
 function filoyuYukle() {
   Promise.all([
