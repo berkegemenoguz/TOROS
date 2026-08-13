@@ -544,6 +544,12 @@ function filoyuYukle() {
     var aracListesi = sonuclar[0];
     var teslimatListesi = sonuclar[1];
 
+    araclar = {};
+    teslimatlar = {};
+    document.getElementById('arac-listesi').innerHTML = '<div class="bos-mesaj" id="arac-bos" style="padding:40px;">Henuz arac eklenmedi</div>';
+    var havuz = document.getElementById('havuz');
+    havuz.innerHTML = '<div class="bos-mesaj" id="havuz-bos">Henuz teslimat eklenmedi</div>';
+
     teslimatListesi.forEach(function(t) {
       teslimatlar[t.id] = {
         adi: t.adi, adres: t.adres, ag: t.agirlik, hc: t.hacim,
