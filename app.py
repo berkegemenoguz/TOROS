@@ -452,6 +452,24 @@ def otomatik_dagit():
     return jsonify({"atamalar": sonuc})
 
 
+@app.route("/api/teslimatlar/<int:tes_id>/adres", methods=["GET"])
+def teslimat_adres(tes_id):
+    session = Session()
+    row = session.execute(text(
+        "SELECT a.* FROM adresler a JOIN teslimatlar t ON t.adres_id = a.id WHERE t.id = :id"
+    ), {"id": tes_id}).fetchone()
+    session.close()
+    if not row:
+        return jsonify({}), 200
+    return jsonify({
+        "il": row.il, "ilce": row.ilce, "mahalle": row.mahalle,
+        "sokak": row.sokak, "bina_no": row.bina_no, "kat": row.kat, "daire": row.daire,
+        "posta_kodu": row.posta_kodu, "formatted_address": row.formatted_address,
+        "lat": float(row.lat) if row.lat else None, "lon": float(row.lon) if row.lon else None,
+        "puan": row.puan,
+    })
+
+
 @app.route("/api/teslimatlar/<int:tes_id>", methods=["DELETE"])
 def teslimat_sil_api(tes_id):
     session = Session()

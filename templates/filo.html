@@ -65,6 +65,17 @@
   }
   .teslimat-chip:hover .chip-sil { display: block; }
 
+  .adres-popup {
+    position: fixed; z-index: 1000; background: #16213e; border: 1px solid #0f3460;
+    border-radius: 8px; padding: 12px 14px; font-size: 11px; color: #ccc;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); min-width: 200px; max-width: 260px;
+    pointer-events: none;
+  }
+  .adres-popup .popup-baslik { font-weight: bold; color: #fff; margin-bottom: 8px; font-size: 12px; }
+  .adres-popup .popup-satir { display: flex; gap: 6px; margin-bottom: 4px; }
+  .adres-popup .popup-etiket { color: #76b5c5; min-width: 55px; }
+  .adres-popup .popup-deger { color: #e0e0e0; }
+
   .arac-listesi { display: flex; gap: 10px; flex: 1; overflow-x: auto; }
 
   .arac-kutu {
@@ -366,14 +377,64 @@ function chipOlustur(tid) {
     suruklenen = tid;
     chip.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    adresPopupGizle();
   });
   chip.addEventListener('dragend', function() {
     chip.classList.remove('dragging');
     suruklenen = null;
   });
+  chip.addEventListener('click', function(e) {
+    e.stopPropagation();
+    adresPopupGoster(tid, chip);
+  });
 
   return chip;
 }
+
+var popupAcikTid = null;
+
+function adresPopupGoster(tid, chip) {
+  if (popupAcikTid === tid) { adresPopupGizle(); return; }
+  popupAcikTid = tid;
+  var popup = document.getElementById('adres-popup');
+  popup.innerHTML = '<div class="popup-baslik">Yükleniyor...</div>';
+  popup.style.display = 'block';
+  adresPopupKonumla(chip, popup);
+
+  var t = teslimatlar[tid];
+  fetch('/api/teslimatlar/' + tid + '/adres')
+    .then(function(r) { return r.json(); })
+    .then(function(v) {
+      if (popupAcikTid !== tid) return;
+      var satirlar = '';
+      if (v.formatted_address) satirlar += '<div class="popup-satir"><span class="popup-etiket">Adres</span><span class="popup-deger">' + v.formatted_address + '</span></div>';
+      if (v.ilce) satirlar += '<div class="popup-satir"><span class="popup-etiket">İlçe</span><span class="popup-deger">' + v.ilce + '</span></div>';
+      if (v.mahalle) satirlar += '<div class="popup-satir"><span class="popup-etiket">Mahalle</span><span class="popup-deger">' + v.mahalle + '</span></div>';
+      if (v.sokak) satirlar += '<div class="popup-satir"><span class="popup-etiket">Sokak</span><span class="popup-deger">' + v.sokak + (v.bina_no ? ' No:' + v.bina_no : '') + '</span></div>';
+      if (v.kat) satirlar += '<div class="popup-satir"><span class="popup-etiket">Kat/Daire</span><span class="popup-deger">' + v.kat + (v.daire ? ' / ' + v.daire : '') + '</span></div>';
+      if (v.posta_kodu) satirlar += '<div class="popup-satir"><span class="popup-etiket">Posta K.</span><span class="popup-deger">' + v.posta_kodu + '</span></div>';
+      if (v.puan !== undefined) satirlar += '<div class="popup-satir"><span class="popup-etiket">Puan</span><span class="popup-deger">' + v.puan + '/100</span></div>';
+      popup.innerHTML = '<div class="popup-baslik">' + (t ? t.adi : '') + '</div>' + (satirlar || '<div style="color:#a0a0b0">Adres bilgisi yok</div>');
+      adresPopupKonumla(chip, popup);
+    });
+}
+
+function adresPopupKonumla(chip, popup) {
+  var rect = chip.getBoundingClientRect();
+  var top = rect.bottom + 6;
+  var left = rect.left;
+  if (left + 260 > window.innerWidth) left = window.innerWidth - 270;
+  if (top + 180 > window.innerHeight) top = rect.top - 10 - popup.offsetHeight;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+}
+
+function adresPopupGizle() {
+  document.getElementById('adres-popup').style.display = 'none';
+  popupAcikTid = null;
+}
+
+document.addEventListener('click', adresPopupGizle);
 
 function chipHavuzaEkle(tid) {
   var havuz = document.getElementById('havuz');
@@ -602,5 +663,6 @@ function filoyuYukle() {
 
 filoyuYukle();
 </script>
+<div class="adres-popup" id="adres-popup" style="display:none;"></div>
 </body>
 </html>
