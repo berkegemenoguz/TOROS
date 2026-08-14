@@ -118,7 +118,7 @@ def arac_bulk():
 @app.route("/api/araclar/<int:arac_id>", methods=["DELETE"])
 def arac_sil(arac_id):
     session = Session()
-    session.execute(text("UPDATE teslimatlar SET arac_id = NULL, durum = 'beklemede' WHERE arac_id = :id"), {"id": arac_id})
+    session.execute(text("UPDATE teslimatlar SET arac_id = NULL, durum = 'beklemede', sira = NULL WHERE arac_id = :id"), {"id": arac_id})
     session.execute(text("UPDATE araclar SET aktif = FALSE WHERE id = :id"), {"id": arac_id})
     session.commit()
     session.close()
@@ -128,7 +128,9 @@ def arac_sil(arac_id):
 @app.route("/api/teslimatlar", methods=["GET"])
 def teslimat_listele():
     session = Session()
-    rows = session.execute(text("SELECT * FROM teslimatlar ORDER BY id")).fetchall()
+    rows = session.execute(text(
+        "SELECT * FROM teslimatlar ORDER BY arac_id NULLS FIRST, sira NULLS LAST, id"
+    )).fetchall()
     session.close()
     return jsonify([{
         "id": r.id, "adi": r.adi, "adres": r.adres,
@@ -138,7 +140,7 @@ def teslimat_listele():
         "termin_tarihi": str(r.termin_tarihi) if r.termin_tarihi else "",
         "randevu_bas": str(r.randevu_bas)[:5] if r.randevu_bas else "",
         "randevu_son": str(r.randevu_son)[:5] if r.randevu_son else "",
-        "arac_id": r.arac_id, "durum": r.durum
+        "arac_id": r.arac_id, "durum": r.durum, "sira": r.sira
     } for r in rows])
 
 
@@ -273,9 +275,18 @@ def teslimat_guncelle(tes_id):
 
     if "arac_id" in v:
         durum = "atandi" if v["arac_id"] else "beklemede"
+        # Elle tasinan teslimat optimize edilmis siranin disina cikar; hedef
+        # aracin rotasinin sonuna eklenir, araçtan cikarilinca sira silinir.
+        yeni_sira = None
+        if v["arac_id"]:
+            son = session.execute(text(
+                "SELECT COALESCE(MAX(sira), 0) FROM teslimatlar WHERE arac_id = :aid"
+            ), {"aid": v["arac_id"]}).scalar()
+            yeni_sira = (son or 0) + 1
         session.execute(text(
-            "UPDATE teslimatlar SET arac_id = :arac_id, durum = :durum WHERE id = :id"
-        ), {"arac_id": v["arac_id"], "durum": durum, "id": tes_id})
+            "UPDATE teslimatlar SET arac_id = :arac_id, durum = :durum, sira = :sira "
+            "WHERE id = :id"
+        ), {"arac_id": v["arac_id"], "durum": durum, "sira": yeni_sira, "id": tes_id})
 
     alanlar = {}
     if "adi" in v: alanlar["adi"] = v["adi"]
@@ -505,11 +516,17 @@ def otomatik_dagit():
             "vardiya_yuzde": round(100 * rota_dk(r) / VARDIYA_DK),
         })
 
+    # sira: rotadaki ziyaret sirasi (1'den baslar), 2-opt sonrasi kesinlesmis hali
     for arac_id, tes_idler in atamalar.items():
-        for tid in tes_idler:
+        for sira, tid in enumerate(tes_idler, 1):
             session.execute(text(
-                "UPDATE teslimatlar SET arac_id = :arac_id, durum = 'atandi' WHERE id = :tid"
-            ), {"arac_id": arac_id, "tid": tid})
+                "UPDATE teslimatlar SET arac_id = :arac_id, durum = 'atandi', sira = :sira "
+                "WHERE id = :tid"
+            ), {"arac_id": arac_id, "sira": sira, "tid": tid})
+    if acikta:
+        session.execute(text(
+            "UPDATE teslimatlar SET sira = NULL WHERE id = ANY(:idler)"
+        ), {"idler": acikta})
     session.commit()
     session.close()
 

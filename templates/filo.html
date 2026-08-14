@@ -92,6 +92,11 @@
   .teslimat-chip.dragging { opacity: 0.4; }
   .teslimat-chip .chip-isim { font-weight: bold; color: #1a1a1a; }
   .teslimat-chip .chip-detay { color: #6b7280; font-size: 10px; }
+  .teslimat-chip .chip-sira {
+    display: inline-block; min-width: 16px; height: 16px; line-height: 16px;
+    background: #c31f3f; color: #fff; font-size: 9px; font-weight: bold;
+    text-align: center; margin-right: 6px; padding: 0 3px;
+  }
   .teslimat-chip .chip-sil {
     position: absolute; top: -4px; right: -4px; background: #c31f3f; color: #fff;
     border: none; border-radius: 50%; width: 14px; height: 14px; font-size: 9px;
@@ -415,7 +420,8 @@ function chipOlustur(tid) {
   chip.id = 'chip-' + tid;
   chip.draggable = true;
   chip.dataset.tid = tid;
-  chip.innerHTML = '<span class="chip-isim">' + t.adi + '</span><br>'
+  var sira = t.sira ? '<span class="chip-sira">' + t.sira + '</span>' : '';
+  chip.innerHTML = sira + '<span class="chip-isim">' + t.adi + '</span><br>'
     + '<span class="chip-detay">' + detay + '</span>'
     + '<button class="chip-sil" onclick="teslimatSil(' + tid + ')">&times;</button>';
 
@@ -689,7 +695,7 @@ function filoyuYukle() {
       teslimatlar[t.id] = {
         adi: t.adi, adres: t.adres, ag: t.agirlik, hc: t.hacim,
         termin: t.termin_tarihi, randevuBas: t.randevu_bas, randevuSon: t.randevu_son,
-        arac_id: t.arac_id, lat: t.lat, lon: t.lon
+        arac_id: t.arac_id, lat: t.lat, lon: t.lon, sira: t.sira
       };
     });
 
