@@ -151,6 +151,16 @@
     </div>
     <div class="satir">
       <div class="form-grup">
+        <label>Kat</label>
+        <input type="text" id="tes-kat" placeholder="Opsiyonel">
+      </div>
+      <div class="form-grup">
+        <label>Daire</label>
+        <input type="text" id="tes-daire" placeholder="Opsiyonel">
+      </div>
+    </div>
+    <div class="satir">
+      <div class="form-grup">
         <label>Agirlik (kg)</label>
         <input type="number" id="tes-agirlik" value="5" step="0.1">
       </div>
@@ -308,6 +318,8 @@ function teslimatOlustur() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       adi: adi, adres: adres,
+      kat: document.getElementById('tes-kat').value.trim() || null,
+      daire: document.getElementById('tes-daire').value.trim() || null,
       agirlik: ag, hacim: hc,
       termin_tarihi: termin || null,
       randevu_bas: randevuBas || null,
@@ -325,6 +337,8 @@ function teslimatOlustur() {
     havuzSayacGuncelle();
     document.getElementById('tes-adi').value = '';
     document.getElementById('tes-adres').value = '';
+    document.getElementById('tes-kat').value = '';
+    document.getElementById('tes-daire').value = '';
   })
   .catch(function() {
     btn.disabled = false;
