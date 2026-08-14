@@ -343,45 +343,99 @@ def otomatik_dagit():
     depo_lat = float(depo.lat) if depo else 40.98
     depo_lon = float(depo.lon) if depo else 28.872
 
+    def aci_farki(a, b):
+        d = abs(a - b) % (2 * math.pi)
+        return min(d, 2 * math.pi - d)
+
+    yakin_liste = []
     tes_listesi = []
     for t in teslimatlar:
-        aci = math.atan2(float(t.lon) - depo_lon, float(t.lat) - depo_lat)
-        tes_listesi.append({"id": t.id, "ag": float(t.agirlik), "hc": float(t.hacim), "aci": aci})
+        lat, lon = float(t.lat), float(t.lon)
+        kayit = {"id": t.id, "ag": float(t.agirlik), "hc": float(t.hacim),
+                 "aci": math.atan2(lon - depo_lon, lat - depo_lat)}
+        mesafe_km = math.hypot((lat - depo_lat) * 111.0, (lon - depo_lon) * 84.0)
+        if mesafe_km <= 2.0:
+            yakin_liste.append(kayit)
+        else:
+            tes_listesi.append(kayit)
     tes_listesi.sort(key=lambda x: x["aci"])
 
-    toplam_tes = len(tes_listesi)
     n_arac = len(araclar)
-    esit_pay = toplam_tes // n_arac
-    kalan = toplam_tes % n_arac
+    n_tes = len(tes_listesi)
+
+    kumeler = []
+    if n_tes > 0:
+        bosluklar = []
+        for i in range(n_tes):
+            sonraki = (i + 1) % n_tes
+            fark = tes_listesi[sonraki]["aci"] - tes_listesi[i]["aci"]
+            if sonraki == 0:
+                fark += 2 * math.pi
+            bosluklar.append(fark)
+        baslangic = (bosluklar.index(max(bosluklar)) + 1) % n_tes
+        sirali = tes_listesi[baslangic:] + tes_listesi[:baslangic]
+
+        esik = math.radians(15)
+        kumeler = [[sirali[0]]]
+        for i in range(1, n_tes):
+            fark = sirali[i]["aci"] - sirali[i - 1]["aci"]
+            if fark < 0:
+                fark += 2 * math.pi
+            if fark > esik and len(kumeler) < n_arac:
+                kumeler.append([])
+            kumeler[-1].append(sirali[i])
+
+        # 2 ve alti teslimatli kumeler ayri arac acmaz, acisal en yakin kumeye katilir
+        birlesti = True
+        while birlesti and len(kumeler) > 1:
+            birlesti = False
+            for i in range(len(kumeler)):
+                if len(kumeler[i]) <= 2:
+                    ort = sum(t["aci"] for t in kumeler[i]) / len(kumeler[i])
+                    hedef = min((j for j in range(len(kumeler)) if j != i),
+                                key=lambda j: aci_farki(sum(t["aci"] for t in kumeler[j]) / len(kumeler[j]), ort))
+                    kumeler[hedef].extend(kumeler.pop(i))
+                    birlesti = True
+                    break
+
+        # bos arac varsa buyuk kumeler bolunur; 4 ve alti teslimatli kume bolunmez
+        while len(kumeler) < n_arac:
+            en_buyuk = max(range(len(kumeler)), key=lambda i: len(kumeler[i]))
+            k = kumeler[en_buyuk]
+            if len(k) <= 4:
+                break
+            kumeler.pop(en_buyuk)
+            m = len(k)
+            orta = m // 2
+            pencere = max(1, int(m * 0.3))
+            en_iyi, en_iyi_fark = orta, -1.0
+            for i in range(max(1, orta - pencere), min(m - 1, orta + pencere) + 1):
+                fark = k[i]["aci"] - k[i - 1]["aci"]
+                if fark > en_iyi_fark:
+                    en_iyi_fark = fark
+                    en_iyi = i
+            kumeler.insert(en_buyuk, k[:en_iyi])
+            kumeler.insert(en_buyuk + 1, k[en_iyi:])
+
+    kumeler.sort(key=lambda k: -sum(t["ag"] for t in k))
     arac_bilgi = []
     for i, a in enumerate(araclar):
+        seg = kumeler[i] if i < len(kumeler) else []
         arac_bilgi.append({
             "id": a.id, "max_ag": float(a.max_agirlik), "max_hc": float(a.max_hacim),
-            "kalan_ag": float(a.max_agirlik), "kalan_hc": float(a.max_hacim),
-            "hedef_adet": esit_pay + (1 if i < kalan else 0),
-            "teslimatlar": []
+            "ort_aci": (sum(t["aci"] for t in seg) / len(seg)) if seg else None,
+            "teslimatlar": [t["id"] for t in seg],
         })
 
-    arac_idx = 0
-    for t in tes_listesi:
-        atandi = False
-        for deneme in range(len(arac_bilgi)):
-            a = arac_bilgi[(arac_idx + deneme) % len(arac_bilgi)]
-            if t["ag"] <= a["kalan_ag"] and t["hc"] <= a["kalan_hc"]:
-                a["teslimatlar"].append(t["id"])
-                a["kalan_ag"] -= t["ag"]
-                a["kalan_hc"] -= t["hc"]
-                if len(a["teslimatlar"]) >= a["hedef_adet"]:
-                    arac_idx = (arac_idx + deneme + 1) % len(arac_bilgi)
-                atandi = True
-                break
-        if not atandi:
-            for a in arac_bilgi:
-                if t["ag"] <= a["kalan_ag"] and t["hc"] <= a["kalan_hc"]:
-                    a["teslimatlar"].append(t["id"])
-                    a["kalan_ag"] -= t["ag"]
-                    a["kalan_hc"] -= t["hc"]
-                    break
+    # depoya 2 km'den yakin teslimatlar ekstra sefer acmaz, mevcut rotalardan uygun olana eklenir
+    if yakin_liste:
+        dolu = [a for a in arac_bilgi if a["teslimatlar"]]
+        if not dolu:
+            arac_bilgi[0]["teslimatlar"] = [t["id"] for t in yakin_liste]
+        else:
+            for t in yakin_liste:
+                hedef = min(dolu, key=lambda a: aci_farki(a["ort_aci"], t["aci"]))
+                hedef["teslimatlar"].append(t["id"])
 
     atamalar = {}
     for a in arac_bilgi:
