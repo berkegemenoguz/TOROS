@@ -170,7 +170,7 @@
 <div id="map"></div>
 
 <script>
-var map = L.map('map').setView([40.99, 28.84], 13);
+var map = L.map('map', {zoomSnap: 0.5, zoomDelta: 0.5, wheelDebounceTime: 40, wheelPxPerZoomLevel: 120}).setView([40.99, 28.84], 13);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OSM &copy; CARTO', maxZoom: 19,
 }).addTo(map);
@@ -329,24 +329,18 @@ function haritaCiz(veri, sonuc) {
   rotaCizgiler.forEach(function(c) { map.removeLayer(c); });
   rotaCizgiler = [];
 
-  var depoMarker = L.marker([veri.depo.lat, veri.depo.lon], {
-    icon: L.divIcon({
-      html: '<div style="background:#00e676;color:#fff;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:11px;white-space:nowrap;">Depo</div>',
-      className: '',
-    })
-  }).addTo(map);
+  var depoMarker = L.circleMarker([veri.depo.lat, veri.depo.lon], {
+    radius: 8, fillColor: '#00e676', color: '#fff', weight: 2, fillOpacity: 1
+  }).bindTooltip('Depo', {permanent: true, direction: 'top', offset: [0, -8], className: 'depo-tooltip'}).addTo(map);
   markerlar.push(depoMarker);
 
   sonuc.isimler.forEach(function(isim, i) {
     var idx = sonuc.optimal_sira[i];
     var t = veri.teslimatlar[idx];
     var varis = sonuc.varis_zamanlari[i];
-    var marker = L.marker([t.lat, t.lon], {
-      icon: L.divIcon({
-        html: '<div style="background:#e94560;color:#fff;padding:3px 7px;border-radius:10px;font-size:11px;white-space:nowrap;">' + (i+1) + '. ' + isim + ' <span style="color:#ffcdd2">' + varis + '</span></div>',
-        className: '',
-      })
-    }).addTo(map);
+    var marker = L.circleMarker([t.lat, t.lon], {
+      radius: 6, fillColor: '#c31f3f', color: '#fff', weight: 1.5, fillOpacity: 1
+    }).bindTooltip((i+1) + '. ' + isim + ' ' + varis, {direction: 'top', offset: [0, -6]}).addTo(map);
     markerlar.push(marker);
   });
 
@@ -499,12 +493,9 @@ function aracSec(aracId) {
 
   var depoLat = parseFloat(document.getElementById('depo-lat').value);
   var depoLon = parseFloat(document.getElementById('depo-lon').value);
-  var depoMarker = L.marker([depoLat, depoLon], {
-    icon: L.divIcon({
-      html: '<div style="background:#00e676;color:#fff;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:11px;white-space:nowrap;">Depo</div>',
-      className: '',
-    })
-  }).addTo(map);
+  var depoMarker = L.circleMarker([depoLat, depoLon], {
+    radius: 8, fillColor: '#00e676', color: '#fff', weight: 2, fillOpacity: 1
+  }).bindTooltip('Depo', {permanent: true, direction: 'top', offset: [0, -8], className: 'depo-tooltip'}).addTo(map);
   markerlar.push(depoMarker);
 
   arac.teslimatlar.forEach(function(tid) {
@@ -520,12 +511,9 @@ function aracSec(aracId) {
       kart.querySelector('.t-lon').value = t.lon.toFixed(4);
       kart.querySelector('.t-adres').style.borderColor = '#00e676';
 
-      var marker = L.marker([t.lat, t.lon], {
-        icon: L.divIcon({
-          html: '<div style="background:#e94560;color:#fff;padding:3px 7px;border-radius:10px;font-size:11px;white-space:nowrap;">' + t.adi + '</div>',
-          className: '',
-        })
-      }).addTo(map);
+      var marker = L.circleMarker([t.lat, t.lon], {
+        radius: 6, fillColor: '#c31f3f', color: '#fff', weight: 1.5, fillOpacity: 1
+      }).bindTooltip(t.adi, {direction: 'top', offset: [0, -6]}).addTo(map);
       markerlar.push(marker);
     }
 
