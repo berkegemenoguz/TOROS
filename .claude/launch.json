@@ -5,8 +5,8 @@
       "name": "toros",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["app.py"],
-      "port": 5050,
-      "autoPort": true
+      "port": 5002,
+      "autoPort": false
     }
   ]
 }
