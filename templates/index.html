@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
 <meta charset="utf-8">
 <title>TOROS - Teslimat Optimizasyonu</title>
@@ -7,81 +7,110 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; display: flex; height: 100vh; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #f4f4f5; color: #1a1a1a; display: flex; height: 100vh;
+  }
+
+  #splash {
+    position: fixed; inset: 0; background: #c31f3f; z-index: 9999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; transition: opacity 0.5s;
+  }
+  #splash.kapan { opacity: 0; pointer-events: none; }
+  #splash .splash-firma { max-width: 320px; margin-bottom: 22px; }
+  #splash .splash-logo { font-size: 44px; font-weight: 800; color: #fff; letter-spacing: 2px; }
+  #splash .splash-alt { font-size: 11px; letter-spacing: 6px; color: rgba(255,255,255,0.75); text-transform: uppercase; }
 
   .panel {
-    width: 400px; background: #16213e; overflow-y: auto; padding: 20px;
-    border-right: 2px solid #0f3460; flex-shrink: 0;
+    width: 400px; background: #fff; overflow-y: auto; padding: 24px 20px;
+    border-right: 1px solid #e4e4e7; flex-shrink: 0;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05); z-index: 500;
   }
-  .panel h1 { font-size: 20px; color: #e94560; margin-bottom: 15px; }
-  .panel h2 { font-size: 14px; color: #a0a0b0; margin: 15px 0 8px; }
+  .panel h1 { font-size: 24px; font-weight: 800; color: #c31f3f; letter-spacing: 1px; }
+  .panel .alt-baslik {
+    font-size: 10px; letter-spacing: 3px; color: #9ca3af;
+    text-transform: uppercase; margin: 2px 0 12px;
+  }
+  .filo-link { color: #c31f3f; font-size: 12px; text-decoration: none; display: block; margin-bottom: 10px; font-weight: 600; }
+  .filo-link:hover { text-decoration: underline; }
+  .panel h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #6b7280; margin: 18px 0 8px; font-weight: 600;
+  }
 
   .form-grup { margin-bottom: 10px; }
-  .form-grup label { display: block; font-size: 12px; color: #a0a0b0; margin-bottom: 3px; }
+  .form-grup label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 3px; }
   .form-grup input, .form-grup select {
-    width: 100%; padding: 8px; background: #0f3460; border: 1px solid #1a3a6e;
-    color: #eee; border-radius: 4px; font-size: 13px;
+    width: 100%; padding: 8px 10px; background: #fff; border: 1px solid #d4d4d8;
+    color: #1a1a1a; border-radius: 2px; font-size: 13px;
+    -webkit-appearance: none; appearance: none;
   }
-  .form-grup input:focus { outline: none; border-color: #e94560; }
+  .form-grup select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+  }
+  .form-grup input:focus { outline: none; border-color: #c31f3f; }
 
-  .depo-alan { background: #0f3460; padding: 12px; border-radius: 6px; margin-bottom: 15px; }
+  .depo-alan { background: #fff; border: 1px solid #ececee; padding: 14px; border-radius: 2px; margin-bottom: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   .depo-alan .form-grup { margin-bottom: 6px; }
 
   .teslimat-listesi { margin-bottom: 15px; }
   .teslimat-karti {
-    background: #0f3460; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px;
-    position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #fff; border: 1px solid #ececee; padding: 6px 10px; border-radius: 2px;
+    margin-bottom: 4px; position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
   .teslimat-karti .sil-btn {
     background: none; border: none;
-    color: #e94560; cursor: pointer; font-size: 16px; flex-shrink: 0;
+    color: #c31f3f; cursor: pointer; font-size: 16px; flex-shrink: 0;
   }
   .teslimat-karti .form-grup { margin-bottom: 0; }
   .teslimat-karti .form-grup label { font-size: 10px; margin-bottom: 1px; }
-  .teslimat-karti .form-grup input { padding: 3px 6px; font-size: 12px; }
+  .teslimat-karti .form-grup input { padding: 3px 6px; font-size: 12px; background: #fff; }
 
   .btn {
-    padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer;
+    padding: 10px 16px; border: none; border-radius: 2px; cursor: pointer;
     font-size: 13px; font-weight: bold;
   }
   .btn-ara {
-    background: #1a4a7e; color: #76b5c5; border: none; padding: 8px 12px;
-    border-radius: 4px; cursor: pointer; font-size: 12px; white-space: nowrap;
+    background: #fff; color: #374151; border: 1px solid #d4d4d8; padding: 8px 12px;
+    border-radius: 2px; cursor: pointer; font-size: 12px; white-space: nowrap;
   }
-  .btn-ara:hover { background: #2a5a8e; }
+  .btn-ara:hover { border-color: #c31f3f; color: #c31f3f; }
   .adres-satir { display: flex; gap: 6px; }
   .adres-satir input { flex: 1; }
   .satir { display: flex; gap: 6px; }
-  .btn-hesapla { background: #e94560; color: #fff; width: 100%; font-size: 15px; padding: 12px; }
-  .btn-hesapla:hover { background: #c73652; }
-  .btn-hesapla:disabled { background: #555; cursor: not-allowed; }
+  .btn-hesapla { background: #c31f3f; color: #fff; width: 100%; font-size: 15px; padding: 12px; box-shadow: 0 2px 6px rgba(195,31,63,0.3); }
+  .btn-hesapla:hover { background: #a51a35; }
+  .btn-hesapla:disabled { background: #d4d4d8; cursor: not-allowed; }
 
   #map { flex: 1; }
 
   .sonuc-panel {
-    display: none; background: #0d1b36; padding: 15px; border-radius: 6px;
-    margin-top: 15px; border: 1px solid #0f3460;
+    display: none; background: #fff; padding: 15px; border-radius: 2px;
+    margin-top: 15px; border: 1px solid #ececee; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   }
   .sonuc-panel.aktif { display: block; }
-  .sonuc-baslik { color: #e94560; font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+  .sonuc-baslik { color: #c31f3f; font-size: 14px; font-weight: bold; margin-bottom: 10px; }
   .sonuc-ozet { display: flex; gap: 10px; margin-bottom: 12px; }
   .sonuc-kutu {
-    flex: 1; text-align: center; background: #0f3460; padding: 8px; border-radius: 4px;
+    flex: 1; text-align: center; background: #fafafa; border: 1px solid #ececee; padding: 8px; border-radius: 2px;
   }
-  .sonuc-kutu .deger { font-size: 16px; font-weight: bold; color: #e94560; }
-  .sonuc-kutu .etiket { font-size: 10px; color: #a0a0b0; }
+  .sonuc-kutu .deger { font-size: 16px; font-weight: bold; color: #c31f3f; }
+  .sonuc-kutu .etiket { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
   .rota-listesi { font-size: 12px; line-height: 22px; }
-  .rota-listesi .durak { padding: 3px 0; border-bottom: 1px solid #1a3a6e; }
-  .rota-listesi .saat { color: #76b5c5; font-weight: bold; }
+  .rota-listesi .durak { padding: 3px 0; border-bottom: 1px solid #f0f0f1; }
+  .rota-listesi .saat { color: #c31f3f; font-weight: bold; }
 
   .yukleniyor {
-    display: none; text-align: center; padding: 20px; color: #76b5c5;
+    display: none; text-align: center; padding: 20px; color: #6b7280;
   }
   .yukleniyor.aktif { display: block; }
 
   .btn-maps {
     display: none; width: 100%; padding: 10px; margin-top: 10px; border: none;
-    border-radius: 6px; background: #1a73e8; color: #fff; font-size: 13px;
+    border-radius: 2px; background: #1a73e8; color: #fff; font-size: 13px;
     font-weight: bold; cursor: pointer; text-align: center;
   }
   .btn-maps.aktif { display: block; }
@@ -89,33 +118,36 @@
 
   .filo-arac-btn {
     display: block; width: 100%; padding: 10px 12px; margin-bottom: 6px;
-    background: #0f3460; border: 2px solid #1a3a6e; border-radius: 6px;
-    color: #eee; text-align: left; cursor: pointer; font-size: 12px;
+    background: #fff; border: 1.5px solid #e4e4e7; border-radius: 2px;
+    color: #1a1a1a; text-align: left; cursor: pointer; font-size: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
-  .filo-arac-btn:hover { border-color: #76b5c5; }
-  .filo-arac-btn.secili { border-color: #e94560; background: #1a2a50; }
-  .filo-arac-btn .fa-tip { color: #76b5c5; font-size: 10px; }
-  .filo-arac-btn .fa-detay { color: #a0a0b0; font-size: 10px; margin-top: 2px; }
-  .filo-geocode-durum { font-size: 11px; color: #76b5c5; margin-bottom: 8px; }
+  .filo-arac-btn:hover { border-color: #c31f3f; }
+  .filo-arac-btn.secili { border-color: #c31f3f; background: #fdf1f3; }
+  .filo-arac-btn .fa-tip { color: #9ca3af; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filo-arac-btn .fa-detay { color: #6b7280; font-size: 10px; margin-top: 2px; }
+  .filo-geocode-durum { font-size: 11px; color: #6b7280; margin-bottom: 8px; }
 </style>
 </head>
 <body>
 
+<div id="splash">
+  <img src="/static/logo.png" alt="Horoz Lojistik" class="splash-firma">
+  <div class="splash-logo">TOROS</div>
+  <div class="splash-alt">Teslimat Optimizasyonu</div>
+</div>
+
 <div class="panel">
   <h1>TOROS</h1>
-  <a href="/filo" style="color:#76b5c5;font-size:12px;text-decoration:none;display:block;margin-bottom:10px;">Filo Yonetimi &rarr;</a>
-
-  <div id="filo-alan" style="display:none;">
-    <h2>Filo Araclari</h2>
-    <div id="filo-arac-listesi" style="margin-bottom:10px;"></div>
-  </div>
+  <div class="alt-baslik">Teslimat Optimizasyonu</div>
+  <a href="/filo" class="filo-link">Filo Yönetimi &rarr;</a>
 
   <h2>Depo Konumu</h2>
   <div class="depo-alan">
     <div class="form-grup">
       <label>Adres</label>
       <div class="adres-satir">
-        <input type="text" id="depo-adres" placeholder="Bakirkoy Meydani, Istanbul">
+        <input type="text" id="depo-adres" placeholder="Bakırköy Meydanı, İstanbul">
         <button class="btn btn-ara" onclick="depoAdresiAra()">Ara</button>
       </div>
     </div>
@@ -124,24 +156,29 @@
       <div class="form-grup"><label>Lon</label><input type="number" id="depo-lon" step="0.0001" value="28.8720"></div>
     </div>
     <div class="form-grup">
-      <label>Kalkis Zamani</label>
+      <label>Kalkış Zamanı</label>
       <input type="datetime-local" id="kalkis-zamani">
     </div>
     <div class="form-grup" style="margin-top:8px;">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" id="depoya-don" checked style="width:auto;accent-color:#e94560;">
-        Depoya donus rotasi ekle
+        <input type="checkbox" id="depoya-don" checked style="width:auto;accent-color:#c31f3f;">
+        Depoya dönüş rotası ekle
       </label>
     </div>
   </div>
 
+  <div id="filo-alan" style="display:none;">
+    <h2>Filo Araçları</h2>
+    <div id="filo-arac-listesi" style="margin-bottom:10px;"></div>
+  </div>
+
   <div id="teslimat-alani" style="display:none;">
-  <h2>Teslimat Noktalari</h2>
+  <h2>Teslimat Noktaları</h2>
   <div id="teslimat-listesi" class="teslimat-listesi"></div>
   <button class="btn btn-hesapla" id="btn-hesapla" onclick="hesapla()">Rota Hesapla</button>
   </div>
 
-  <div class="yukleniyor" id="yukleniyor">Hesaplaniyor...</div>
+  <div class="yukleniyor" id="yukleniyor">Hesaplanıyor...</div>
 
   <div class="sonuc-panel" id="sonuc-panel">
     <div class="sonuc-baslik">Optimizasyon Sonucu</div>
@@ -152,7 +189,7 @@
       </div>
       <div class="sonuc-kutu">
         <div class="deger" id="s-sure">-</div>
-        <div class="etiket">Toplam Sure</div>
+        <div class="etiket">Toplam Süre</div>
       </div>
       <div class="sonuc-kutu">
         <div class="deger" id="s-teslimat">-</div>
@@ -161,8 +198,8 @@
     </div>
     <div class="rota-listesi" id="rota-listesi"></div>
     <div class="maps-butonlar" id="maps-butonlar" style="display:none;gap:6px;margin-top:10px;">
-      <button class="btn-maps aktif" style="display:block;flex:1;" onclick="googleMapsAc()">Google Maps'te Ac</button>
-      <button class="btn-maps aktif" style="display:block;flex-shrink:0;width:auto;padding:10px 14px;background:#0f3460;" onclick="linkKopyala()">Linki Kopyala</button>
+      <button class="btn-maps aktif" style="display:block;flex:1;" onclick="googleMapsAc()">Google Maps'te Aç</button>
+      <button class="btn-maps aktif" style="display:block;flex-shrink:0;width:auto;padding:10px 14px;background:#4b5563;" onclick="linkKopyala()">Linki Kopyala</button>
     </div>
   </div>
 </div>
@@ -171,9 +208,11 @@
 
 <script>
 var map = L.map('map', {zoomSnap: 0.5, zoomDelta: 0.5, wheelDebounceTime: 40, wheelPxPerZoomLevel: 120}).setView([40.99, 28.84], 13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OSM &copy; CARTO', maxZoom: 19,
 }).addTo(map);
+
+setTimeout(function() { document.getElementById('splash').classList.add('kapan'); }, 900);
 
 var markerlar = [];
 var rotaCizgiler = [];
@@ -187,7 +226,7 @@ document.getElementById('kalkis-zamani').value = iso;
 function adresAra(inputEl, latEl, lonEl, isimEl) {
   var adres = inputEl.value;
   if (!adres) return;
-  inputEl.style.borderColor = '#76b5c5';
+  inputEl.style.borderColor = '#9ca3af';
   fetch('/geocode', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -195,13 +234,13 @@ function adresAra(inputEl, latEl, lonEl, isimEl) {
   })
   .then(function(r) { return r.json(); })
   .then(function(v) {
-    if (v.hata) { inputEl.style.borderColor = '#e94560'; return; }
+    if (v.hata) { inputEl.style.borderColor = '#c31f3f'; return; }
     latEl.value = v.lat.toFixed(4);
     lonEl.value = v.lon.toFixed(4);
     if (isimEl && !isimEl.dataset.manual) isimEl.value = v.adres.split(',')[0];
     inputEl.style.borderColor = '#00e676';
   })
-  .catch(function() { inputEl.style.borderColor = '#e94560'; });
+  .catch(function() { inputEl.style.borderColor = '#c31f3f'; });
 }
 
 function depoAdresiAra() {
@@ -218,7 +257,7 @@ function teslimatEkle(isim, lat, lon) {
   div.className = 'teslimat-karti';
   div.id = 'teslimat-' + id;
   div.innerHTML = ''
-    + '<div class="form-grup" style="flex:0 0 auto;min-width:80px;"><label>Isim</label>'
+    + '<div class="form-grup" style="flex:0 0 auto;min-width:80px;"><label>İsim</label>'
     + '<input type="text" class="t-isim" value="' + (isim || 'Teslimat ' + id) + '" readonly></div>'
     + '<div class="form-grup" style="flex:1;"><label>Adres</label>'
     + '<input type="text" class="t-adres" placeholder="Adres" readonly></div>'
@@ -275,7 +314,7 @@ function veriTopla() {
 function hesapla() {
   var veri = veriTopla();
   if (veri.teslimatlar.length < 2) {
-    alert('En az 2 teslimat noktasi ekleyin.');
+    alert('En az 2 teslimat noktası ekleyin.');
     return;
   }
 
@@ -330,7 +369,7 @@ function haritaCiz(veri, sonuc) {
   rotaCizgiler = [];
 
   var depoMarker = L.circleMarker([veri.depo.lat, veri.depo.lon], {
-    radius: 8, fillColor: '#00e676', color: '#fff', weight: 2, fillOpacity: 1
+    radius: 8, fillColor: '#00a862', color: '#fff', weight: 2, fillOpacity: 1
   }).bindTooltip('Depo', {permanent: true, direction: 'top', offset: [0, -8], className: 'depo-tooltip'}).addTo(map);
   markerlar.push(depoMarker);
 
@@ -350,7 +389,7 @@ function haritaCiz(veri, sonuc) {
   sonuc.bacak_polylines.forEach(function(noktalar, i) {
     var sonBacak = depoyaDon && i === sonuc.bacak_polylines.length - 1;
     var cizgi = L.polyline(noktalar, {
-      color: sonBacak ? '#ab47bc' : '#00b0ff',
+      color: sonBacak ? '#9333ea' : '#1a56db',
       weight: 5,
       opacity: 0.9,
       dashArray: sonBacak ? '10, 8' : null,
@@ -369,14 +408,14 @@ function sonucGoster(sonuc) {
   document.getElementById('s-teslimat').textContent = sonuc.isimler.length;
 
   var depoyaDon = document.getElementById('depoya-don').checked;
-  var html = '<div class="durak"><b>0.</b> Depo (kalkis)</div>';
+  var html = '<div class="durak"><b>0.</b> Depo (kalkış)</div>';
   sonuc.isimler.forEach(function(isim, i) {
     var varis = sonuc.varis_zamanlari[i];
     html += '<div class="durak"><b>' + (i+1) + '.</b> ' + isim + ' <span class="saat">' + varis + '</span> <span style="color:#76b5c5;font-size:11px;">(+15dk teslimat)</span></div>';
   });
   if (depoyaDon) {
     var donus = sonuc.varis_zamanlari[sonuc.varis_zamanlari.length - 1];
-    html += '<div class="durak"><b>' + (sonuc.isimler.length + 1) + '.</b> Depo (donus) <span class="saat">' + donus + '</span></div>';
+    html += '<div class="durak"><b>' + (sonuc.isimler.length + 1) + '.</b> Depo (dönüş) <span class="saat">' + donus + '</span></div>';
   }
 
   document.getElementById('rota-listesi').innerHTML = html;
@@ -406,7 +445,7 @@ function linkKopyala() {
   if (!window._mapsUrl) return;
   navigator.clipboard.writeText(window._mapsUrl).then(function() {
     var btn = document.querySelector('.maps-butonlar button:last-child');
-    btn.textContent = 'Kopyalandi!';
+    btn.textContent = 'Kopyalandı!';
     setTimeout(function() { btn.textContent = 'Linki Kopyala'; }, 2000);
   });
 }
@@ -426,7 +465,7 @@ function filoyuYukle() {
     if (aracListesi.length === 0) {
       document.getElementById('filo-alan').style.display = 'block';
       document.getElementById('filo-arac-listesi').innerHTML =
-        '<p style="color:#aaa;text-align:center;padding:20px 0;">Henuz arac eklenmemis. <a href="/filo" style="color:#e94560;">Filo sayfasindan</a> arac ve teslimat ekleyin.</p>';
+        '<p style="color:#6b7280;text-align:center;padding:20px 0;">Henüz araç eklenmemiş. <a href="/filo" style="color:#c31f3f;">Filo sayfasından</a> araç ve teslimat ekleyin.</p>';
       return;
     }
 
@@ -472,7 +511,7 @@ function filoyuYukle() {
 function aracSec(aracId) {
   var arac = filoVerisi.araclar[aracId];
   if (!arac || arac.teslimatlar.length === 0) {
-    alert('Bu aracta teslimat yok.');
+    alert('Bu araçta teslimat yok.');
     return;
   }
 
@@ -494,7 +533,7 @@ function aracSec(aracId) {
   var depoLat = parseFloat(document.getElementById('depo-lat').value);
   var depoLon = parseFloat(document.getElementById('depo-lon').value);
   var depoMarker = L.circleMarker([depoLat, depoLon], {
-    radius: 8, fillColor: '#00e676', color: '#fff', weight: 2, fillOpacity: 1
+    radius: 8, fillColor: '#00a862', color: '#fff', weight: 2, fillOpacity: 1
   }).bindTooltip('Depo', {permanent: true, direction: 'top', offset: [0, -8], className: 'depo-tooltip'}).addTo(map);
   markerlar.push(depoMarker);
 

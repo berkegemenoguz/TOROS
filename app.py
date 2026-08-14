@@ -324,132 +324,244 @@ def teslimat_guncelle(tes_id):
     return jsonify({"ok": True})
 
 
+# ---------------------------------------------------------------------------
+# Dagitim parametreleri (Clarke-Wright tasarruf algoritmasi)
+# Kat suresi sonucu en cok degistiren varsayimdir; sahadan gercek deger
+# geldiginde once burasi guncellenmeli.
+# ---------------------------------------------------------------------------
+SERVIS_DK = 20.0       # teslimat + montaj taban suresi
+KAT_DK = 2.0           # her kat icin ek sure
+VARDIYA_DK = 540.0     # 9 saatlik vardiya
+HIZ_KMH = 25.0         # Istanbul ici ortalama hiz
+YOL_SAPMA = 1.35       # kus ucusu mesafe -> gercek yol carpani
+KOPRU_KM = 12.0        # Bogaz gecisi cezasi
+HEDEF_DOLULUK = (70.0, 82.0)   # filo boyutlandirma uyarisi icin bant
+
+ANADOLU_ILCELERI = {
+    "adalar", "atasehir", "beykoz", "cekmekoy", "kadikoy", "kartal", "maltepe",
+    "pendik", "sancaktepe", "sultanbeyli", "sile", "tuzla", "umraniye", "uskudar",
+}
+
+_TR_TABLO = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosucgiosu")
+
+
+def sadelestir(s):
+    return (s or "").translate(_TR_TABLO).lower().strip()
+
+
 @app.route("/api/dagit", methods=["POST"])
 def otomatik_dagit():
     import math
 
     session = Session()
-    araclar = session.execute(text("SELECT * FROM araclar WHERE aktif = TRUE ORDER BY max_agirlik DESC")).fetchall()
-    teslimatlar = session.execute(text("SELECT * FROM teslimatlar WHERE arac_id IS NULL AND lat IS NOT NULL AND lon IS NOT NULL ORDER BY id")).fetchall()
+    araclar = session.execute(text(
+        "SELECT id, adi, max_agirlik, max_hacim FROM araclar WHERE aktif = TRUE "
+        "ORDER BY max_hacim, max_agirlik"
+    )).fetchall()
+    teslimatlar = session.execute(text("""
+        SELECT t.id, t.agirlik, t.hacim, t.lat, t.lon, a.ilce, a.kat
+        FROM teslimatlar t
+        LEFT JOIN adresler a ON a.id = t.adres_id
+        WHERE t.arac_id IS NULL AND t.lat IS NOT NULL AND t.lon IS NOT NULL
+        ORDER BY t.id
+    """)).fetchall()
     depo = session.execute(text("SELECT * FROM depolar ORDER BY id LIMIT 1")).fetchone()
 
     if not araclar:
         session.close()
-        return jsonify({"hata": "Aktif arac bulunamadi"}), 400
+        return jsonify({"hata": "Aktif araç bulunamadı"}), 400
     if not teslimatlar:
         session.close()
-        return jsonify({"hata": "Atanmamis teslimat bulunamadi"}), 400
+        return jsonify({"hata": "Atanmamış teslimat bulunamadı"}), 400
 
     depo_lat = float(depo.lat) if depo else 40.98
     depo_lon = float(depo.lon) if depo else 28.872
+    depo_pt = (depo_lat, depo_lon)
 
-    def aci_farki(a, b):
-        d = abs(a - b) % (2 * math.pi)
-        return min(d, 2 * math.pi - d)
+    tesler = [{
+        "id": t.id,
+        "ag": float(t.agirlik or 0),
+        "hc": float(t.hacim or 0),
+        "pt": (float(t.lat), float(t.lon)),
+        "yaka": "A" if sadelestir(t.ilce) in ANADOLU_ILCELERI else "E",
+        "servis": SERVIS_DK + KAT_DK * int(t.kat or 0),
+    } for t in teslimatlar]
+    n = len(tesler)
 
-    yakin_liste = []
-    tes_listesi = []
-    for t in teslimatlar:
-        lat, lon = float(t.lat), float(t.lon)
-        kayit = {"id": t.id, "ag": float(t.agirlik), "hc": float(t.hacim),
-                 "aci": math.atan2(lon - depo_lon, lat - depo_lat)}
-        mesafe_km = math.hypot((lat - depo_lat) * 111.0, (lon - depo_lon) * 84.0)
-        if mesafe_km <= 2.0:
-            yakin_liste.append(kayit)
+    # Deponun yakasi adres kaydinda tutulmuyor; en yakin teslimatin yakasindan
+    # cikariliyor. Depo teslimat bolgesinin icinde oldugu surece dogru sonuc verir.
+    depo_yaka = min(tesler, key=lambda t: (t["pt"][0] - depo_lat) ** 2
+                                          + (t["pt"][1] - depo_lon) ** 2)["yaka"]
+
+    def kus_ucusu(a, b):
+        yer_yaricapi = 6371.0
+        p1, p2 = math.radians(a[0]), math.radians(b[0])
+        dp, dl = p2 - p1, math.radians(b[1] - a[1])
+        h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+        return 2 * yer_yaricapi * math.asin(math.sqrt(h)) * YOL_SAPMA
+
+    def mesafe(a_yaka, a_pt, b_yaka, b_pt):
+        return kus_ucusu(a_pt, b_pt) + (KOPRU_KM if a_yaka != b_yaka else 0.0)
+
+    depo_mes = [mesafe(depo_yaka, depo_pt, t["yaka"], t["pt"]) for t in tesler]
+    mes = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1, n):
+            mes[i][j] = mes[j][i] = mesafe(tesler[i]["yaka"], tesler[i]["pt"],
+                                           tesler[j]["yaka"], tesler[j]["pt"])
+
+    def rota_km(r):
+        return depo_mes[r[0]] + depo_mes[r[-1]] + sum(mes[a][b] for a, b in zip(r, r[1:]))
+
+    def rota_dk(r):
+        return rota_km(r) / HIZ_KMH * 60.0 + sum(tesler[i]["servis"] for i in r)
+
+    # --- Clarke-Wright tasarruf birlestirmesi -------------------------------
+    # Kapasite ve vardiya SERT kisit: birlestirme kosuluna gomulu oldugu icin
+    # algoritma ihlalli plan uretemez.
+    max_ag = max(float(a.max_agirlik) for a in araclar)
+    max_hc = max(float(a.max_hacim) for a in araclar)
+
+    rotalar = [[i] for i in range(n)]
+    nerede = {i: i for i in range(n)}
+    yuk = [[tesler[i]["ag"], tesler[i]["hc"]] for i in range(n)]
+
+    tasarruflar = sorted(
+        ((depo_mes[i] + depo_mes[j] - mes[i][j], i, j)
+         for i in range(n) for j in range(i + 1, n)), reverse=True)
+
+    for tasarruf, i, j in tasarruflar:
+        if tasarruf <= 0:
+            break
+        ri, rj = nerede[i], nerede[j]
+        if ri == rj or rotalar[ri] is None or rotalar[rj] is None:
+            continue
+        rota_i, rota_j = rotalar[ri], rotalar[rj]
+        if (yuk[ri][0] + yuk[rj][0] > max_ag) or (yuk[ri][1] + yuk[rj][1] > max_hc):
+            continue
+        # sadece rota uclari birlestirilebilir
+        if rota_i[-1] == i and rota_j[0] == j:
+            birlesik = rota_i + rota_j
+        elif rota_i[0] == i and rota_j[-1] == j:
+            birlesik = rota_j + rota_i
+        elif rota_i[-1] == i and rota_j[-1] == j:
+            birlesik = rota_i + rota_j[::-1]
+        elif rota_i[0] == i and rota_j[0] == j:
+            birlesik = rota_i[::-1] + rota_j
         else:
-            tes_listesi.append(kayit)
-    tes_listesi.sort(key=lambda x: x["aci"])
+            continue
+        if rota_dk(birlesik) > VARDIYA_DK:
+            continue
+        rotalar[ri], rotalar[rj] = birlesik, None
+        yuk[ri][0] += yuk[rj][0]
+        yuk[ri][1] += yuk[rj][1]
+        for k in rota_j:
+            nerede[k] = ri
 
-    n_arac = len(araclar)
-    n_tes = len(tes_listesi)
+    rotalar = [r for r in rotalar if r]
 
-    kumeler = []
-    if n_tes > 0:
-        bosluklar = []
-        for i in range(n_tes):
-            sonraki = (i + 1) % n_tes
-            fark = tes_listesi[sonraki]["aci"] - tes_listesi[i]["aci"]
-            if sonraki == 0:
-                fark += 2 * math.pi
-            bosluklar.append(fark)
-        baslangic = (bosluklar.index(max(bosluklar)) + 1) % n_tes
-        sirali = tes_listesi[baslangic:] + tes_listesi[:baslangic]
+    # --- 2-opt: rota ici sira iyilestirmesi ---------------------------------
+    def iki_opt(r):
+        if len(r) < 4:
+            return r
+        gelisti = True
+        while gelisti:
+            gelisti = False
+            for a in range(len(r) - 1):
+                for b in range(a + 2, len(r)):
+                    aday = r[:a + 1] + r[a + 1:b + 1][::-1] + r[b + 1:]
+                    if rota_km(aday) < rota_km(r) - 1e-9:
+                        r, gelisti = aday, True
+        return r
 
-        esik = math.radians(15)
-        kumeler = [[sirali[0]]]
-        for i in range(1, n_tes):
-            fark = sirali[i]["aci"] - sirali[i - 1]["aci"]
-            if fark < 0:
-                fark += 2 * math.pi
-            if fark > esik and len(kumeler) < n_arac:
-                kumeler.append([])
-            kumeler[-1].append(sirali[i])
+    rotalar = [iki_opt(r) for r in rotalar]
 
-        # 2 ve alti teslimatli kumeler ayri arac acmaz, acisal en yakin kumeye katilir
-        birlesti = True
-        while birlesti and len(kumeler) > 1:
-            birlesti = False
-            for i in range(len(kumeler)):
-                if len(kumeler[i]) <= 2:
-                    ort = sum(t["aci"] for t in kumeler[i]) / len(kumeler[i])
-                    hedef = min((j for j in range(len(kumeler)) if j != i),
-                                key=lambda j: aci_farki(sum(t["aci"] for t in kumeler[j]) / len(kumeler[j]), ort))
-                    kumeler[hedef].extend(kumeler.pop(i))
-                    birlesti = True
-                    break
+    # --- Arac atamasi: rotayi sigdiran EN KUCUK arac (best-fit) -------------
+    # Boylece buyuk araclar bos gitmez, doluluk orani yukselir.
+    rotalar.sort(key=lambda r: -sum(tesler[i]["hc"] for i in r))
+    bos_araclar = [{"id": a.id, "adi": a.adi, "mag": float(a.max_agirlik),
+                    "mhc": float(a.max_hacim)} for a in araclar]
 
-        # bos arac varsa buyuk kumeler bolunur; 4 ve alti teslimatli kume bolunmez
-        while len(kumeler) < n_arac:
-            en_buyuk = max(range(len(kumeler)), key=lambda i: len(kumeler[i]))
-            k = kumeler[en_buyuk]
-            if len(k) <= 4:
-                break
-            kumeler.pop(en_buyuk)
-            m = len(k)
-            orta = m // 2
-            pencere = max(1, int(m * 0.3))
-            en_iyi, en_iyi_fark = orta, -1.0
-            for i in range(max(1, orta - pencere), min(m - 1, orta + pencere) + 1):
-                fark = k[i]["aci"] - k[i - 1]["aci"]
-                if fark > en_iyi_fark:
-                    en_iyi_fark = fark
-                    en_iyi = i
-            kumeler.insert(en_buyuk, k[:en_iyi])
-            kumeler.insert(en_buyuk + 1, k[en_iyi:])
-
-    kumeler.sort(key=lambda k: -sum(t["ag"] for t in k))
-    arac_bilgi = []
-    for i, a in enumerate(araclar):
-        seg = kumeler[i] if i < len(kumeler) else []
-        arac_bilgi.append({
-            "id": a.id, "max_ag": float(a.max_agirlik), "max_hc": float(a.max_hacim),
-            "ort_aci": (sum(t["aci"] for t in seg) / len(seg)) if seg else None,
-            "teslimatlar": [t["id"] for t in seg],
+    atamalar, detaylar, acikta = {}, [], []
+    for r in rotalar:
+        ag = sum(tesler[i]["ag"] for i in r)
+        hc = sum(tesler[i]["hc"] for i in r)
+        uygun = [a for a in bos_araclar if a["mag"] >= ag and a["mhc"] >= hc]
+        if not uygun:
+            acikta.extend(tesler[i]["id"] for i in r)
+            continue
+        arac = min(uygun, key=lambda a: (a["mhc"], a["mag"]))
+        bos_araclar.remove(arac)
+        atamalar[arac["id"]] = [tesler[i]["id"] for i in r]
+        detaylar.append({
+            "arac_id": arac["id"], "arac_adi": arac["adi"],
+            "teslimat_sayisi": len(r),
+            "km": round(rota_km(r), 1),
+            "sure_dk": round(rota_dk(r)),
+            "agirlik": round(ag, 1), "max_agirlik": arac["mag"],
+            "hacim": round(hc, 2), "max_hacim": arac["mhc"],
+            "doluluk_agirlik": round(100 * ag / arac["mag"], 1),
+            "doluluk_hacim": round(100 * hc / arac["mhc"], 1),
+            "vardiya_yuzde": round(100 * rota_dk(r) / VARDIYA_DK),
         })
 
-    # depoya 2 km'den yakin teslimatlar ekstra sefer acmaz, mevcut rotalardan uygun olana eklenir
-    if yakin_liste:
-        dolu = [a for a in arac_bilgi if a["teslimatlar"]]
-        if not dolu:
-            arac_bilgi[0]["teslimatlar"] = [t["id"] for t in yakin_liste]
-        else:
-            for t in yakin_liste:
-                hedef = min(dolu, key=lambda a: aci_farki(a["ort_aci"], t["aci"]))
-                hedef["teslimatlar"].append(t["id"])
-
-    atamalar = {}
-    for a in arac_bilgi:
-        atamalar[a["id"]] = a["teslimatlar"]
-        for tid in a["teslimatlar"]:
+    for arac_id, tes_idler in atamalar.items():
+        for tid in tes_idler:
             session.execute(text(
                 "UPDATE teslimatlar SET arac_id = :arac_id, durum = 'atandi' WHERE id = :tid"
-            ), {"arac_id": a["id"], "tid": tid})
-
+            ), {"arac_id": arac_id, "tid": tid})
     session.commit()
     session.close()
 
-    sonuc = {str(k): v for k, v in atamalar.items()}
-    return jsonify({"atamalar": sonuc})
+    # --- Ozet ve filo boyutlandirma uyarilari -------------------------------
+    kullanilan = len(detaylar)
+    top_km = round(sum(d["km"] for d in detaylar), 1)
+    top_ag = sum(d["agirlik"] for d in detaylar)
+    top_hc = sum(d["hacim"] for d in detaylar)
+    kap_ag = sum(d["max_agirlik"] for d in detaylar) or 1
+    kap_hc = sum(d["max_hacim"] for d in detaylar) or 1
+    dol_ag = round(100 * top_ag / kap_ag, 1)
+    dol_hc = round(100 * top_hc / kap_hc, 1)
+    doluluk = max(dol_ag, dol_hc)
+    vardiya = round(100 * sum(d["sure_dk"] for d in detaylar)
+                    / (kullanilan * VARDIYA_DK)) if kullanilan else 0
+
+    uyarilar = []
+    if acikta:
+        uyarilar.append(
+            f"{len(acikta)} teslimat açıkta kaldı — filo yetersiz, "
+            f"en az {len(rotalar)} araç gerekiyor"
+        )
+    if kullanilan and doluluk < HEDEF_DOLULUK[0]:
+        uyarilar.append(
+            f"Doluluk %{doluluk:.0f} — araçlar boş gidiyor, "
+            f"daha küçük araç değerlendirilebilir"
+        )
+    elif kullanilan and doluluk > HEDEF_DOLULUK[1]:
+        uyarilar.append(f"Doluluk %{doluluk:.0f} — filo sınırda, pay bırakmıyor")
+    if vardiya > 92:
+        uyarilar.append(f"Vardiya kullanımı %{vardiya} — gecikmeye tolerans yok")
+    if bos_araclar:
+        uyarilar.append(f"{len(bos_araclar)} araç boş kaldı: "
+                        + ", ".join(a["adi"] for a in bos_araclar))
+
+    return jsonify({
+        "atamalar": {str(k): v for k, v in atamalar.items()},
+        "ozet": {
+            "teslimat": n,
+            "atanan": n - len(acikta),
+            "acikta": len(acikta),
+            "kullanilan_arac": kullanilan,
+            "toplam_arac": len(araclar),
+            "toplam_km": top_km,
+            "doluluk_agirlik": dol_ag,
+            "doluluk_hacim": dol_hc,
+            "vardiya_yuzde": vardiya,
+        },
+        "rotalar": detaylar,
+        "acikta_teslimatlar": acikta,
+        "uyarilar": uyarilar,
+    })
 
 
 @app.route("/api/teslimatlar/<int:tes_id>/adres", methods=["GET"])
