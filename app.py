@@ -218,11 +218,34 @@ def teslimat_bulk():
 def teslimat_guncelle(tes_id):
     v = request.json
     session = Session()
+
     if "arac_id" in v:
         durum = "atandi" if v["arac_id"] else "beklemede"
         session.execute(text(
             "UPDATE teslimatlar SET arac_id = :arac_id, durum = :durum WHERE id = :id"
         ), {"arac_id": v["arac_id"], "durum": durum, "id": tes_id})
+
+    alanlar = {}
+    if "adi" in v: alanlar["adi"] = v["adi"]
+    if "adres" in v:
+        alanlar["adres"] = v["adres"]
+        geo = adres_geocode(v["adres"])
+        if geo:
+            alanlar["lat"] = geo["lat"]
+            alanlar["lon"] = geo["lon"]
+            alanlar["adres"] = geo["adres"]
+    if "agirlik" in v: alanlar["agirlik"] = v["agirlik"]
+    if "hacim" in v: alanlar["hacim"] = v["hacim"]
+    if "termin_tarihi" in v: alanlar["termin_tarihi"] = v["termin_tarihi"] or None
+    if "randevu_bas" in v: alanlar["randevu_bas"] = v["randevu_bas"] or None
+    if "randevu_son" in v: alanlar["randevu_son"] = v["randevu_son"] or None
+    if "durum" in v: alanlar["durum"] = v["durum"]
+
+    if alanlar:
+        set_kismi = ", ".join(k + " = :" + k for k in alanlar)
+        alanlar["id"] = tes_id
+        session.execute(text("UPDATE teslimatlar SET " + set_kismi + " WHERE id = :id"), alanlar)
+
     session.commit()
     session.close()
     return jsonify({"ok": True})
