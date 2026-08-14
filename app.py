@@ -280,12 +280,33 @@ def teslimat_guncelle(tes_id):
     alanlar = {}
     if "adi" in v: alanlar["adi"] = v["adi"]
     if "adres" in v:
-        alanlar["adres"] = v["adres"]
         geo = adres_geocode(v["adres"])
-        if geo:
-            alanlar["lat"] = geo["lat"]
-            alanlar["lon"] = geo["lon"]
-            alanlar["adres"] = geo["adres"]
+        if not geo or geo["puan"] < 80:
+            session.close()
+            return jsonify({"hata": "Adres bulunamadi, daha spesifik sekilde girin"}), 400
+        alanlar["lat"] = geo["lat"]
+        alanlar["lon"] = geo["lon"]
+        alanlar["adres"] = geo["formatted_address"]
+        adres_id_row = session.execute(text("SELECT adres_id FROM teslimatlar WHERE id = :id"), {"id": tes_id}).fetchone()
+        if adres_id_row and adres_id_row.adres_id:
+            session.execute(text(
+                "UPDATE adresler SET il=:il, ilce=:ilce, mahalle=:mahalle, sokak=:sokak, bina_no=:bina_no, "
+                "posta_kodu=:posta_kodu, formatted_address=:formatted, lat=:lat, lon=:lon, puan=:puan WHERE id=:id"
+            ), {
+                "il": geo["il"], "ilce": geo["ilce"], "mahalle": geo["mahalle"],
+                "sokak": geo["sokak"], "bina_no": geo["bina_no"], "posta_kodu": geo["posta_kodu"],
+                "formatted": geo["formatted_address"], "lat": geo["lat"], "lon": geo["lon"],
+                "puan": geo["puan"], "id": adres_id_row.adres_id,
+            })
+    if "kat" in v or "daire" in v:
+        adres_id_row2 = session.execute(text("SELECT adres_id FROM teslimatlar WHERE id = :id"), {"id": tes_id}).fetchone()
+        if adres_id_row2 and adres_id_row2.adres_id:
+            kat_daire = {}
+            if "kat" in v: kat_daire["kat"] = v["kat"]
+            if "daire" in v: kat_daire["daire"] = v["daire"]
+            set_kd = ", ".join(k + " = :" + k for k in kat_daire)
+            kat_daire["id"] = adres_id_row2.adres_id
+            session.execute(text("UPDATE adresler SET " + set_kd + " WHERE id = :id"), kat_daire)
     if "agirlik" in v: alanlar["agirlik"] = v["agirlik"]
     if "hacim" in v: alanlar["hacim"] = v["hacim"]
     if "termin_tarihi" in v: alanlar["termin_tarihi"] = v["termin_tarihi"] or None
