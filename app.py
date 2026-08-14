@@ -407,6 +407,67 @@ def teslimat_sil_api(tes_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/adresler", methods=["GET"])
+def adresler_listele():
+    session = Session()
+    rows = session.execute(text("SELECT * FROM adresler ORDER BY id")).fetchall()
+    session.close()
+    return jsonify([{
+        "id": r.id, "il": r.il, "ilce": r.ilce, "mahalle": r.mahalle,
+        "sokak": r.sokak, "bina_no": r.bina_no, "kat": r.kat, "daire": r.daire,
+        "posta_kodu": r.posta_kodu, "formatted_address": r.formatted_address,
+        "lat": float(r.lat) if r.lat else None, "lon": float(r.lon) if r.lon else None,
+        "puan": r.puan,
+    } for r in rows])
+
+
+@app.route("/api/adresler/<int:adres_id>", methods=["GET"])
+def adres_detay(adres_id):
+    session = Session()
+    r = session.execute(text("SELECT * FROM adresler WHERE id = :id"), {"id": adres_id}).fetchone()
+    session.close()
+    if not r:
+        return jsonify({"hata": "Adres bulunamadi"}), 404
+    return jsonify({
+        "id": r.id, "il": r.il, "ilce": r.ilce, "mahalle": r.mahalle,
+        "sokak": r.sokak, "bina_no": r.bina_no, "kat": r.kat, "daire": r.daire,
+        "posta_kodu": r.posta_kodu, "formatted_address": r.formatted_address,
+        "lat": float(r.lat) if r.lat else None, "lon": float(r.lon) if r.lon else None,
+        "puan": r.puan,
+    })
+
+
+@app.route("/api/adresler/<int:adres_id>", methods=["PUT"])
+def adres_guncelle(adres_id):
+    v = request.json
+    session = Session()
+    mevcut = session.execute(text("SELECT * FROM adresler WHERE id = :id"), {"id": adres_id}).fetchone()
+    if not mevcut:
+        session.close()
+        return jsonify({"hata": "Adres bulunamadi"}), 404
+    alanlar = {}
+    for alan in ["il", "ilce", "mahalle", "sokak", "bina_no", "kat", "daire", "posta_kodu"]:
+        if alan in v:
+            alanlar[alan] = v[alan]
+    if alanlar:
+        set_kismi = ", ".join(k + " = :" + k for k in alanlar)
+        alanlar["id"] = adres_id
+        session.execute(text("UPDATE adresler SET " + set_kismi + " WHERE id = :id"), alanlar)
+    session.commit()
+    session.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/adresler/<int:adres_id>", methods=["DELETE"])
+def adres_sil(adres_id):
+    session = Session()
+    session.execute(text("UPDATE teslimatlar SET adres_id = NULL WHERE adres_id = :id"), {"id": adres_id})
+    session.execute(text("DELETE FROM adresler WHERE id = :id"), {"id": adres_id})
+    session.commit()
+    session.close()
+    return jsonify({"ok": True})
+
+
 @app.route("/optimize", methods=["POST"])
 def optimize():
     veri = request.json
