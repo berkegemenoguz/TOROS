@@ -149,35 +149,87 @@ def adres_geocode(adres):
     veri = resp.json()
     if veri["status"] != "OK" or not veri["results"]:
         return None
-    loc = veri["results"][0]["geometry"]["location"]
+    sonuc = veri["results"][0]
+    loc = sonuc["geometry"]["location"]
     if not istanbul_ici_mi(loc["lat"], loc["lng"]):
         return None
-    return {"lat": loc["lat"], "lon": loc["lng"], "adres": veri["results"][0]["formatted_address"]}
+
+    puan = {"ROOFTOP": 100, "RANGE_INTERPOLATED": 85, "GEOMETRIC_CENTER": 50, "APPROXIMATE": 25}.get(
+        sonuc["geometry"].get("location_type", ""), 0)
+    if sonuc.get("partial_match"):
+        puan -= 15
+
+    parcalar = {}
+    tip_esleme = {
+        "administrative_area_level_1": "il",
+        "administrative_area_level_2": "ilce",
+        "sublocality": "mahalle", "sublocality_level_1": "mahalle", "neighborhood": "mahalle",
+        "route": "sokak",
+        "street_number": "bina_no",
+        "postal_code": "posta_kodu",
+    }
+    for comp in sonuc.get("address_components", []):
+        for tip in comp["types"]:
+            if tip in tip_esleme:
+                parcalar[tip_esleme[tip]] = comp["long_name"]
+
+    return {
+        "lat": loc["lat"], "lon": loc["lng"],
+        "formatted_address": sonuc["formatted_address"],
+        "puan": puan,
+        "il": parcalar.get("il"), "ilce": parcalar.get("ilce"),
+        "mahalle": parcalar.get("mahalle"), "sokak": parcalar.get("sokak"),
+        "bina_no": parcalar.get("bina_no"), "posta_kodu": parcalar.get("posta_kodu"),
+    }
 
 
 def teslimat_kaydet(v, session):
     lat = v.get("lat")
     lon = v.get("lon")
     adres = v.get("adres", "")
+    kat = v.get("kat") or None
+    daire = v.get("daire") or None
 
     if not lat or not lon:
         if not adres:
             return None, "Adres veya koordinat gerekli"
         geo = adres_geocode(adres)
         if not geo:
-            return None, "Adres bulunamadi veya Istanbul disinda"
-        lat, lon, adres = geo["lat"], geo["lon"], geo["adres"]
+            return None, "Adres bulunamadi, daha spesifik sekilde girin"
+        if geo["puan"] < 80:
+            return None, "Adres bulunamadi, daha spesifik sekilde girin"
+        lat, lon = geo["lat"], geo["lon"]
+    else:
+        geo = None
+
+    adres_result = session.execute(text(
+        "INSERT INTO adresler (il, ilce, mahalle, sokak, bina_no, kat, daire, posta_kodu, formatted_address, lat, lon, puan) "
+        "VALUES (:il, :ilce, :mahalle, :sokak, :bina_no, :kat, :daire, :posta_kodu, :formatted, :lat, :lon, :puan) RETURNING id"
+    ), {
+        "il": geo["il"] if geo else None,
+        "ilce": geo["ilce"] if geo else None,
+        "mahalle": geo["mahalle"] if geo else None,
+        "sokak": geo["sokak"] if geo else None,
+        "bina_no": geo["bina_no"] if geo else None,
+        "kat": kat, "daire": daire,
+        "posta_kodu": geo["posta_kodu"] if geo else None,
+        "formatted": geo["formatted_address"] if geo else adres,
+        "lat": lat, "lon": lon,
+        "puan": geo["puan"] if geo else 100,
+    })
+    adres_id = adres_result.fetchone().id
 
     result = session.execute(text(
-        "INSERT INTO teslimatlar (adi, adres, lat, lon, agirlik, hacim, termin_tarihi, randevu_bas, randevu_son) "
-        "VALUES (:adi, :adres, :lat, :lon, :ag, :hc, :termin, :rbas, :rson) RETURNING id"
+        "INSERT INTO teslimatlar (adi, adres, lat, lon, agirlik, hacim, termin_tarihi, randevu_bas, randevu_son, adres_id) "
+        "VALUES (:adi, :adres, :lat, :lon, :ag, :hc, :termin, :rbas, :rson, :adres_id) RETURNING id"
     ), {
-        "adi": v["adi"], "adres": adres,
+        "adi": v["adi"], "adres": geo["formatted_address"] if geo else adres,
         "lat": lat, "lon": lon,
         "ag": v.get("agirlik", 0), "hc": v.get("hacim", 0),
         "termin": v.get("termin_tarihi") or None,
         "rbas": v.get("randevu_bas") or None,
         "rson": v.get("randevu_son") or None,
+        "adres_id": adres_id,
     })
     return result.fetchone().id, None
 
