@@ -620,7 +620,19 @@ def teslimat_adres(tes_id):
 @app.route("/api/teslimatlar/<int:tes_id>", methods=["DELETE"])
 def teslimat_sil_api(tes_id):
     session = Session()
+    # Adres kaydi teslimatla birlikte olusturuluyor; sadece teslimati silmek
+    # adresler tablosunda yetim kayit birakir. Baska teslimat ayni adresi
+    # kullanmiyorsa adres de silinir.
+    adres_id = session.execute(text(
+        "SELECT adres_id FROM teslimatlar WHERE id = :id"
+    ), {"id": tes_id}).scalar()
     session.execute(text("DELETE FROM teslimatlar WHERE id = :id"), {"id": tes_id})
+    if adres_id:
+        kalan = session.execute(text(
+            "SELECT COUNT(*) FROM teslimatlar WHERE adres_id = :aid"
+        ), {"aid": adres_id}).scalar()
+        if not kalan:
+            session.execute(text("DELETE FROM adresler WHERE id = :aid"), {"aid": adres_id})
     session.commit()
     session.close()
     return jsonify({"ok": True})
