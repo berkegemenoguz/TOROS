@@ -40,7 +40,8 @@
   }
 
   .sol { width: 320px; flex-shrink: 0; }
-  .sag { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  /* min-width: 0 olmadan flex ogesi icerigi kadar genisler ve tum sayfayi tasirir */
+  .sag { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 
   .form-grup { margin-bottom: 8px; }
   .form-grup label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 2px; }
@@ -78,7 +79,8 @@
   .havuz-baslik span { font-size: 11px; color: #6b7280; }
 
   .teslimat-havuz {
-    min-height: 60px; border: 2px dashed #d4d4d8; border-radius: 2px; padding: 6px;
+    min-height: 60px; max-height: 22vh; overflow-y: auto;
+    border: 2px dashed #d4d4d8; border-radius: 2px; padding: 6px;
     display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
   }
   .teslimat-havuz.drag-over { border-color: #c31f3f; background: rgba(195,31,63,0.04); }
@@ -115,27 +117,54 @@
   .adres-popup .popup-etiket { color: #c31f3f; min-width: 55px; font-weight: 600; }
   .adres-popup .popup-deger { color: #374151; }
 
-  .arac-listesi { display: flex; gap: 10px; flex: 1; overflow-x: auto; }
+  /* ---- Filo: ana liste + detay paneli ---- */
+  .filo-alan { display: flex; gap: 10px; flex: 1; min-height: 0; }
 
-  .arac-kutu {
-    background: #fff; border: 1.5px solid #e4e4e7; border-radius: 2px;
-    min-width: 220px; flex: 1; display: flex; flex-direction: column;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  .arac-panel {
+    width: 250px; flex-shrink: 0; padding: 0;
+    display: flex; flex-direction: column; min-height: 0;
   }
-  .arac-kutu.drag-over { border-color: #00a862; }
-  .arac-kutu.kapasite-asimi { border-color: #dc2626; }
+  .panel-baslik {
+    padding: 12px 14px 10px; border-bottom: 1px solid #ececee;
+    display: flex; align-items: baseline; gap: 8px; flex-shrink: 0;
+  }
+  .panel-baslik h2 { margin: 0; }
+  .panel-baslik .sayac { font-size: 11px; color: #9ca3af; margin-left: auto; }
 
-  .arac-baslik {
-    padding: 10px; border-bottom: 1px solid #ececee; display: flex;
-    justify-content: space-between; align-items: center;
-  }
-  .arac-baslik .arac-isim { font-weight: bold; font-size: 13px; color: #1a1a1a; }
-  .arac-baslik .arac-tip { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
-  .arac-baslik .arac-sil {
-    background: none; border: none; color: #c31f3f; cursor: pointer; font-size: 14px;
-  }
+  .arac-satirlar { overflow-y: auto; flex: 1; min-height: 0; }
 
-  .arac-kapasite { padding: 8px 10px; font-size: 10px; color: #6b7280; border-bottom: 1px solid #ececee; }
+  .arac-satir {
+    padding: 8px 12px; border-bottom: 1px solid #f4f4f5; cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .arac-satir:hover { background: #fafafa; }
+  .arac-satir.secili { background: rgba(195,31,63,0.05); border-left-color: #c31f3f; }
+  .arac-satir.drag-over { background: rgba(0,168,98,0.12); border-left-color: #00a862; }
+  .arac-satir.kapasite-asimi .satir-ad { color: #dc2626; }
+  .arac-satir .satir-ust { display: flex; align-items: baseline; gap: 6px; }
+  .arac-satir .satir-ad { font-weight: bold; font-size: 12px; color: #1a1a1a; }
+  .arac-satir .satir-adet {
+    margin-left: auto; font-size: 10px; font-weight: bold; color: #6b7280;
+    background: #f4f4f5; padding: 1px 6px;
+  }
+  .arac-satir .satir-alt { font-size: 10px; color: #9ca3af; margin-top: 1px; }
+  .arac-satir .satir-barlar { display: flex; gap: 4px; margin-top: 5px; }
+  .arac-satir .satir-barlar .kapasite-bar { flex: 1; margin-top: 0; }
+
+  .arac-detay {
+    flex: 1; min-width: 0; padding: 0;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .detay-baslik { padding: 12px 14px; border-bottom: 1px solid #ececee; flex-shrink: 0; }
+  .detay-baslik .arac-isim { font-weight: bold; font-size: 14px; color: #1a1a1a; }
+  .detay-baslik .arac-tip { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+  .detay-baslik .arac-sil {
+    background: none; border: none; color: #c31f3f; cursor: pointer; font-size: 16px;
+    float: right; line-height: 1;
+  }
+  .detay-ozet { font-size: 11px; color: #6b7280; margin-top: 3px; }
+
+  .arac-kapasite { padding: 8px 14px; font-size: 10px; color: #6b7280; border-bottom: 1px solid #ececee; flex-shrink: 0; }
   .kapasite-bar { height: 4px; background: #ececee; border-radius: 2px; margin-top: 3px; }
   .kapasite-bar-dolu { height: 100%; border-radius: 2px; transition: width 0.3s; }
   .kapasite-bar-dolu.normal { background: #00a862; }
@@ -143,10 +172,23 @@
   .kapasite-bar-dolu.asimi { background: #dc2626; }
 
   .arac-icerik {
-    flex: 1; padding: 8px; min-height: 80px; display: flex; flex-wrap: wrap;
-    gap: 6px; align-content: flex-start;
+    flex: 1; padding: 10px; min-height: 0; overflow-y: auto;
+    display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
   }
   .arac-icerik.drag-over { background: rgba(0,168,98,0.05); }
+
+  /* ---- Havuz: ilceye gore gruplu ---- */
+  .ilce-grup { width: 100%; margin-bottom: 4px; }
+  .ilce-baslik {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    padding: 4px 6px; background: #fafafa; border-left: 2px solid #c31f3f;
+    font-size: 11px; font-weight: 600; color: #374151; user-select: none;
+  }
+  .ilce-baslik:hover { background: #f4f4f5; }
+  .ilce-baslik .ok { color: #9ca3af; font-size: 9px; width: 8px; }
+  .ilce-baslik .ilce-adet { margin-left: auto; color: #9ca3af; font-weight: 400; }
+  .ilce-cipler { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px 8px; }
+  .ilce-grup.kapali .ilce-cipler { display: none; }
 
   .bos-mesaj { color: #9ca3af; font-size: 11px; width: 100%; text-align: center; padding: 20px 0; }
 </style>
@@ -259,11 +301,19 @@
       </div>
     </div>
 
-    <div style="flex-shrink:0;">
-      <h2 style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#6b7280;margin-bottom:8px;font-weight:600;">Araçlar</h2>
-    </div>
-    <div class="arac-listesi" id="arac-listesi">
-      <div class="bos-mesaj" id="arac-bos" style="padding:40px;">Henüz araç eklenmedi</div>
+    <div class="filo-alan">
+      <div class="kolon arac-panel">
+        <div class="panel-baslik">
+          <h2>Araçlar</h2>
+          <span class="sayac" id="arac-sayac">0 araç</span>
+        </div>
+        <div class="arac-satirlar" id="arac-satirlar">
+          <div class="bos-mesaj" id="arac-bos">Henüz araç eklenmedi</div>
+        </div>
+      </div>
+      <div class="kolon arac-detay" id="arac-detay">
+        <div class="bos-mesaj">Soldan bir araç seçin</div>
+      </div>
     </div>
   </div>
 </div>
@@ -288,27 +338,117 @@ function tipDegisti() {
 }
 
 
-function aracKutuOlustur(id, adi, tip, maxAg, maxHc, plaka) {
-  var div = document.createElement('div');
-  div.className = 'arac-kutu';
-  div.id = 'arac-' + id;
-  div.innerHTML = ''
-    + '<div class="arac-baslik">'
-    + '  <div><span class="arac-isim">' + adi + '</span> <span class="arac-tip">' + tip + '</span>' + (plaka ? '<br><span style="color:#9ca3af;font-size:11px;">' + plaka + '</span>' : '') + '</div>'
+var seciliArac = null;
+
+function aracYuk(id) {
+  var a = araclar[id], ag = 0, hc = 0;
+  a.teslimatlar.forEach(function(tid) {
+    if (teslimatlar[tid]) { ag += teslimatlar[tid].ag; hc += teslimatlar[tid].hc; }
+  });
+  return { ag: ag, hc: hc, agOran: ag / a.maxAg * 100, hcOran: hc / a.maxHc * 100 };
+}
+
+function barSinif(oran) { return oran > 100 ? 'asimi' : oran > 80 ? 'uyari' : 'normal'; }
+
+function bar(oran) {
+  return '<div class="kapasite-bar"><div class="kapasite-bar-dolu ' + barSinif(oran)
+       + '" style="width:' + Math.min(oran, 100) + '%"></div></div>';
+}
+
+// Ana listedeki kompakt arac satiri; ayni zamanda birakma hedefi.
+function aracSatirOlustur(id) {
+  var satir = document.createElement('div');
+  satir.className = 'arac-satir';
+  satir.id = 'satir-' + id;
+  satir.onclick = function() { aracSec(id); };
+  satir.ondragover = dragOver;
+  satir.ondragleave = dragLeave;
+  satir.ondrop = function(e) { aracaBirak(e, id); };
+  document.getElementById('arac-satirlar').appendChild(satir);
+  var bos = document.getElementById('arac-bos');
+  if (bos) bos.remove();
+  aracSatirGuncelle(id);
+}
+
+function aracSatirGuncelle(id) {
+  var satir = document.getElementById('satir-' + id);
+  if (!satir || !araclar[id]) return;
+  var a = araclar[id], y = aracYuk(id);
+  var alt = [];
+  if (a.plaka) alt.push(a.plaka);
+  if (a.rotaKm != null) alt.push(Math.round(a.rotaKm) + ' km');
+  if (a.rotaDk != null) alt.push(a.rotaDk + ' dk');
+  satir.innerHTML = ''
+    + '<div class="satir-ust"><span class="satir-ad">' + a.adi + '</span>'
+    + '<span class="satir-adet">' + a.teslimatlar.length + '</span></div>'
+    + '<div class="satir-alt">' + (alt.join(' · ') || '&nbsp;') + '</div>'
+    + '<div class="satir-barlar">' + bar(y.agOran) + bar(y.hcOran) + '</div>';
+  satir.classList.toggle('kapasite-asimi', y.agOran > 100 || y.hcOran > 100);
+  satir.classList.toggle('secili', seciliArac === id);
+}
+
+function aracSec(id) {
+  seciliArac = id;
+  Object.keys(araclar).forEach(function(k) {
+    var s = document.getElementById('satir-' + k);
+    if (s) s.classList.toggle('secili', parseInt(k) === id);
+  });
+  aracDetayCiz();
+}
+
+function detayKapasiteCiz() {
+  var kap = document.getElementById('detay-kap');
+  if (!kap || seciliArac === null || !araclar[seciliArac]) return;
+  var a = araclar[seciliArac], y = aracYuk(seciliArac);
+  kap.innerHTML = 'Ağırlık: ' + y.ag.toFixed(1) + ' / ' + a.maxAg + ' kg' + bar(y.agOran)
+                + 'Hacim: ' + y.hc.toFixed(2) + ' / ' + a.maxHc + ' m3' + bar(y.hcOran);
+}
+
+function aracDetayCiz() {
+  var kap = document.getElementById('arac-detay');
+  if (seciliArac === null || !araclar[seciliArac]) {
+    kap.innerHTML = '<div class="bos-mesaj">Soldan bir araç seçin</div>';
+    return;
+  }
+  var id = seciliArac, a = araclar[id];
+  var ozet = [a.teslimatlar.length + ' teslimat'];
+  if (a.rotaKm != null) ozet.push(a.rotaKm.toFixed(1) + ' km');
+  if (a.rotaDk != null) ozet.push(a.rotaDk + ' dk');
+
+  kap.innerHTML = ''
+    + '<div class="detay-baslik">'
     + '  <button class="arac-sil" onclick="aracSil(' + id + ')">&times;</button>'
+    + '  <span class="arac-isim">' + a.adi + '</span> <span class="arac-tip">' + a.tip + '</span>'
+    + (a.plaka ? ' <span style="color:#9ca3af;font-size:11px;">' + a.plaka + '</span>' : '')
+    + '  <div class="detay-ozet">' + ozet.join(' · ') + '</div>'
     + '</div>'
-    + '<div class="arac-kapasite" id="arac-' + id + '-kap">'
-    + '  Ağırlık: 0 / ' + maxAg + ' kg'
-    + '  <div class="kapasite-bar"><div class="kapasite-bar-dolu normal" style="width:0%"></div></div>'
-    + '  Hacim: 0 / ' + maxHc + ' m3'
-    + '  <div class="kapasite-bar"><div class="kapasite-bar-dolu normal" style="width:0%"></div></div>'
-    + '</div>'
-    + '<div class="arac-icerik" id="arac-' + id + '-icerik"'
-    + '  ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="aracaBirak(event,' + id + ')">'
-    + '  <div class="bos-mesaj">Teslimat surukleyin</div>'
-    + '</div>';
-  document.getElementById('arac-listesi').appendChild(div);
-  document.getElementById('arac-bos').style.display = 'none';
+    + '<div class="arac-kapasite" id="detay-kap"></div>'
+    + '<div class="arac-icerik" id="detay-icerik"></div>';
+
+  var icerik = document.getElementById('detay-icerik');
+  icerik.ondragover = dragOver;
+  icerik.ondragleave = dragLeave;
+  icerik.ondrop = function(e) { aracaBirak(e, id); };
+  detayKapasiteCiz();
+
+  if (a.teslimatlar.length === 0) {
+    icerik.innerHTML = '<div class="bos-mesaj">Teslimat sürükleyin</div>';
+    return;
+  }
+  a.teslimatlar.slice().sort(function(x, y) {
+    var sx = teslimatlar[x] ? teslimatlar[x].sira : null;
+    var sy = teslimatlar[y] ? teslimatlar[y].sira : null;
+    if (sx == null && sy == null) return 0;
+    if (sx == null) return 1;
+    if (sy == null) return -1;
+    return sx - sy;
+  }).forEach(function(tid) { icerik.appendChild(chipOlustur(tid)); });
+}
+
+function aracSayacGuncelle() {
+  var n = Object.keys(araclar).length, dolu = 0;
+  Object.keys(araclar).forEach(function(k) { if (araclar[k].teslimatlar.length) dolu++; });
+  document.getElementById('arac-sayac').textContent = n + ' araç · ' + dolu + ' dolu';
 }
 
 function aracEkle() {
@@ -332,8 +472,11 @@ function aracEkle() {
   .then(function(r) { return r.json(); })
   .then(function(veri) {
     var id = veri.id;
-    araclar[id] = { adi: adi, tip: tip, maxAg: maxAg, maxHc: maxHc, plaka: plaka, teslimatlar: [] };
-    aracKutuOlustur(id, adi, tip, maxAg, maxHc, plaka);
+    araclar[id] = { adi: adi, tip: tip, maxAg: maxAg, maxHc: maxHc, plaka: plaka,
+                    rotaKm: null, rotaDk: null, teslimatlar: [] };
+    aracSatirOlustur(id);
+    aracSayacGuncelle();
+    if (seciliArac === null) aracSec(id);
     document.getElementById('arac-adi').value = '';
     document.getElementById('arac-plaka').value = '';
   });
@@ -346,15 +489,23 @@ function aracSil(id) {
   fetch('/api/araclar/' + id, { method: 'DELETE' })
   .then(function() {
     arac.teslimatlar.forEach(function(tid) {
-      teslimatlar[tid].arac_id = null;
-      chipHavuzaEkle(tid);
+      if (teslimatlar[tid]) { teslimatlar[tid].arac_id = null; teslimatlar[tid].sira = null; }
     });
     delete araclar[id];
-    document.getElementById('arac-' + id).remove();
-    if (Object.keys(araclar).length === 0) {
-      document.getElementById('arac-bos').style.display = 'block';
+    var satir = document.getElementById('satir-' + id);
+    if (satir) satir.remove();
+
+    var kalan = Object.keys(araclar);
+    if (seciliArac === id) seciliArac = kalan.length ? parseInt(kalan[0]) : null;
+    if (kalan.length === 0) {
+      document.getElementById('arac-satirlar').innerHTML =
+        '<div class="bos-mesaj" id="arac-bos">Henüz araç eklenmedi</div>';
+    } else {
+      aracSatirGuncelle(seciliArac);
     }
-    havuzSayacGuncelle();
+    aracDetayCiz();
+    havuzYenile();
+    aracSayacGuncelle();
   });
 }
 
@@ -393,10 +544,14 @@ function teslimatOlustur() {
     btn.disabled = false;
     btn.textContent = 'Teslimat Ekle';
     if (veri.hata) { alert(veri.hata); return; }
-    var tid = veri.id;
-    teslimatlar[tid] = { adi: adi, adres: adres, ag: ag, hc: hc, termin: termin, randevuBas: randevuBas, randevuSon: randevuSon, arac_id: null };
-    chipHavuzaEkle(tid);
-    havuzSayacGuncelle();
+    // ilce sunucudan POST yanitiyla geliyor; listeyi bastan cekmeye gerek yok
+    teslimatlar[veri.id] = {
+      adi: adi, adres: veri.adres || adres, ilce: veri.ilce || '',
+      ag: ag, hc: hc, termin: termin,
+      randevuBas: randevuBas, randevuSon: randevuSon,
+      arac_id: null, sira: null
+    };
+    havuzYenile();
     document.getElementById('tes-adi').value = '';
     document.getElementById('tes-adres').value = '';
     document.getElementById('tes-kat').value = '';
@@ -488,13 +643,63 @@ function adresPopupGizle() {
 
 document.addEventListener('click', adresPopupGizle);
 
-function chipHavuzaEkle(tid) {
+// Havuz ilceye gore gruplanir. 150-300 cipte duz liste taranamaz hale geldigi
+// icin gruplar katlanabilir; acik/kapali durum yenilemeler arasinda korunur.
+function havuzYenile() {
   var havuz = document.getElementById('havuz');
-  var bos = document.getElementById('havuz-bos');
-  if (bos) bos.style.display = 'none';
-  var eski = document.getElementById('chip-' + tid);
-  if (eski) eski.remove();
-  havuz.appendChild(chipOlustur(tid));
+  var oncekiDurum = {};
+  Array.prototype.forEach.call(havuz.querySelectorAll('.ilce-grup'), function(g) {
+    oncekiDurum[g.dataset.ilce] = !g.classList.contains('kapali');
+  });
+  havuz.innerHTML = '';
+
+  var gruplar = {};
+  Object.keys(teslimatlar).forEach(function(tid) {
+    var t = teslimatlar[tid];
+    if (t.arac_id) return;
+    var ilce = t.ilce || 'Bilinmiyor';
+    if (!gruplar[ilce]) gruplar[ilce] = [];
+    gruplar[ilce].push(parseInt(tid));
+  });
+
+  var isimler = Object.keys(gruplar).sort(function(a, b) {
+    return gruplar[b].length - gruplar[a].length || a.localeCompare(b, 'tr');
+  });
+
+  if (isimler.length === 0) {
+    var mesaj = Object.keys(teslimatlar).length ? 'Tüm teslimatlar atandı' : 'Henüz teslimat eklenmedi';
+    havuz.innerHTML = '<div class="bos-mesaj" id="havuz-bos">' + mesaj + '</div>';
+    havuzSayacGuncelle();
+    return;
+  }
+
+  isimler.forEach(function(ilce, sira) {
+    var grup = document.createElement('div');
+    grup.className = 'ilce-grup';
+    grup.dataset.ilce = ilce;
+    // ilk yuklemede sadece en kalabalik ilce acik gelir
+    var acik = oncekiDurum[ilce] !== undefined ? oncekiDurum[ilce] : (sira === 0);
+    if (!acik) grup.classList.add('kapali');
+
+    var baslik = document.createElement('div');
+    baslik.className = 'ilce-baslik';
+    baslik.innerHTML = '<span class="ok">' + (acik ? '▼' : '▶') + '</span>'
+      + '<span>' + ilce + '</span>'
+      + '<span class="ilce-adet">' + gruplar[ilce].length + '</span>';
+    baslik.onclick = function() {
+      grup.classList.toggle('kapali');
+      baslik.querySelector('.ok').textContent = grup.classList.contains('kapali') ? '▶' : '▼';
+    };
+
+    var cipler = document.createElement('div');
+    cipler.className = 'ilce-cipler';
+    gruplar[ilce].forEach(function(tid) { cipler.appendChild(chipOlustur(tid)); });
+
+    grup.appendChild(baslik);
+    grup.appendChild(cipler);
+    havuz.appendChild(grup);
+  });
+  havuzSayacGuncelle();
 }
 
 function teslimatSil(tid) {
@@ -503,15 +708,18 @@ function teslimatSil(tid) {
 
   fetch('/api/teslimatlar/' + tid, { method: 'DELETE' })
   .then(function() {
-    if (t.arac_id && araclar[t.arac_id]) {
-      var idx = araclar[t.arac_id].teslimatlar.indexOf(tid);
-      if (idx > -1) araclar[t.arac_id].teslimatlar.splice(idx, 1);
-      kapasiteGuncelle(t.arac_id);
+    var eski = t.arac_id;
+    if (eski && araclar[eski]) {
+      var idx = araclar[eski].teslimatlar.indexOf(tid);
+      if (idx > -1) araclar[eski].teslimatlar.splice(idx, 1);
     }
     delete teslimatlar[tid];
-    var chip = document.getElementById('chip-' + tid);
-    if (chip) chip.remove();
-    havuzSayacGuncelle();
+    if (eski) {
+      kapasiteGuncelle(eski);
+      if (seciliArac === eski) aracDetayCiz();
+    }
+    havuzYenile();
+    aracSayacGuncelle();
   });
 }
 
@@ -532,17 +740,17 @@ function aracaBirak(e, aracId) {
   var tid = suruklenen;
   var t = teslimatlar[tid];
   var arac = araclar[aracId];
+  if (!t || !arac || t.arac_id === aracId) return;
 
-  if (t.arac_id && t.arac_id !== aracId && araclar[t.arac_id]) {
-    var idx = araclar[t.arac_id].teslimatlar.indexOf(tid);
-    if (idx > -1) araclar[t.arac_id].teslimatlar.splice(idx, 1);
-    kapasiteGuncelle(t.arac_id);
+  var eski = t.arac_id;
+  if (eski && araclar[eski]) {
+    var idx = araclar[eski].teslimatlar.indexOf(tid);
+    if (idx > -1) araclar[eski].teslimatlar.splice(idx, 1);
   }
-
-  if (t.arac_id !== aracId) {
-    t.arac_id = aracId;
-    if (arac.teslimatlar.indexOf(tid) === -1) arac.teslimatlar.push(tid);
-  }
+  t.arac_id = aracId;
+  if (arac.teslimatlar.indexOf(tid) === -1) arac.teslimatlar.push(tid);
+  // sunucu teslimati rotanin sonuna ekler; yerel sirayi da ona gore ayarla
+  t.sira = arac.teslimatlar.length;
 
   fetch('/api/teslimatlar/' + tid, {
     method: 'PUT',
@@ -550,16 +758,11 @@ function aracaBirak(e, aracId) {
     body: JSON.stringify({ arac_id: aracId })
   });
 
-  var chip = document.getElementById('chip-' + tid);
-  if (chip) chip.remove();
-
-  var icerik = document.getElementById('arac-' + aracId + '-icerik');
-  var bos = icerik.querySelector('.bos-mesaj');
-  if (bos) bos.remove();
-  icerik.appendChild(chipOlustur(tid));
-
+  if (eski) kapasiteGuncelle(eski);
   kapasiteGuncelle(aracId);
-  havuzSayacGuncelle();
+  if (seciliArac === aracId || seciliArac === eski) aracDetayCiz();
+  havuzYenile();
+  aracSayacGuncelle();
 }
 
 function havuzaBirak(e) {
@@ -569,81 +772,42 @@ function havuzaBirak(e) {
 
   var tid = suruklenen;
   var t = teslimatlar[tid];
+  if (!t || !t.arac_id) return;
 
-  if (t.arac_id && araclar[t.arac_id]) {
-    var idx = araclar[t.arac_id].teslimatlar.indexOf(tid);
-    if (idx > -1) araclar[t.arac_id].teslimatlar.splice(idx, 1);
-    kapasiteGuncelle(t.arac_id);
+  var eski = t.arac_id;
+  if (araclar[eski]) {
+    var idx = araclar[eski].teslimatlar.indexOf(tid);
+    if (idx > -1) araclar[eski].teslimatlar.splice(idx, 1);
   }
-
   t.arac_id = null;
+  t.sira = null;
+
   fetch('/api/teslimatlar/' + tid, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ arac_id: null })
   });
 
-  var chip = document.getElementById('chip-' + tid);
-  if (chip) chip.remove();
-  chipHavuzaEkle(tid);
-  havuzSayacGuncelle();
+  kapasiteGuncelle(eski);
+  if (seciliArac === eski) aracDetayCiz();
+  havuzYenile();
+  aracSayacGuncelle();
 }
 
 function kapasiteGuncelle(aracId) {
-  var arac = araclar[aracId];
-  if (!arac) return;
-
-  var topAg = 0, topHc = 0;
-  arac.teslimatlar.forEach(function(tid) {
-    if (teslimatlar[tid]) {
-      topAg += teslimatlar[tid].ag;
-      topHc += teslimatlar[tid].hc;
-    }
-  });
-
-  var agOran = (topAg / arac.maxAg) * 100;
-  var hcOran = (topHc / arac.maxHc) * 100;
-
-  var agSinif = agOran > 100 ? 'asimi' : agOran > 80 ? 'uyari' : 'normal';
-  var hcSinif = hcOran > 100 ? 'asimi' : hcOran > 80 ? 'uyari' : 'normal';
-
-  var kap = document.getElementById('arac-' + aracId + '-kap');
-  kap.innerHTML = ''
-    + 'Ağırlık: ' + topAg.toFixed(1) + ' / ' + arac.maxAg + ' kg'
-    + '<div class="kapasite-bar"><div class="kapasite-bar-dolu ' + agSinif + '" style="width:' + Math.min(agOran, 100) + '%"></div></div>'
-    + 'Hacim: ' + topHc.toFixed(2) + ' / ' + arac.maxHc + ' m3'
-    + '<div class="kapasite-bar"><div class="kapasite-bar-dolu ' + hcSinif + '" style="width:' + Math.min(hcOran, 100) + '%"></div></div>';
-
-  var kutu = document.getElementById('arac-' + aracId);
-  kutu.classList.toggle('kapasite-asimi', agOran > 100 || hcOran > 100);
-
-  var icerik = document.getElementById('arac-' + aracId + '-icerik');
-  if (arac.teslimatlar.length === 0 && !icerik.querySelector('.bos-mesaj')) {
-    var bos = document.createElement('div');
-    bos.className = 'bos-mesaj';
-    bos.textContent = 'Teslimat sürükleyin';
-    icerik.appendChild(bos);
-  }
+  if (!araclar[aracId]) return;
+  aracSatirGuncelle(aracId);
+  if (seciliArac === aracId) detayKapasiteCiz();
 }
 
 function havuzSayacGuncelle() {
-  var havuz = document.getElementById('havuz');
-  var sayi = havuz.querySelectorAll('.teslimat-chip').length;
-  document.getElementById('havuz-sayac').textContent = sayi + ' teslimat';
-  var bos = document.getElementById('havuz-bos');
-  if (sayi === 0 && Object.keys(teslimatlar).length === 0) {
-    if (!bos) {
-      var yeni = document.createElement('div');
-      yeni.className = 'bos-mesaj';
-      yeni.id = 'havuz-bos';
-      yeni.textContent = 'Henüz teslimat eklenmedi';
-      havuz.appendChild(yeni);
-    } else {
-      bos.style.display = 'block';
-    }
-  } else if (bos) {
-    bos.style.display = 'none';
-  }
+  var sayi = 0;
+  Object.keys(teslimatlar).forEach(function(tid) {
+    if (!teslimatlar[tid].arac_id) sayi++;
+  });
+  var ilce = document.querySelectorAll('#havuz .ilce-grup').length;
+  document.getElementById('havuz-sayac').textContent =
+    sayi + ' teslimat' + (ilce ? ' · ' + ilce + ' ilçe' : '');
 }
 
 var bugun = new Date().toISOString().slice(0, 10);
@@ -687,13 +851,12 @@ function filoyuYukle() {
 
     araclar = {};
     teslimatlar = {};
-    document.getElementById('arac-listesi').innerHTML = '<div class="bos-mesaj" id="arac-bos" style="padding:40px;">Henüz araç eklenmedi</div>';
-    var havuz = document.getElementById('havuz');
-    havuz.innerHTML = '<div class="bos-mesaj" id="havuz-bos">Henüz teslimat eklenmedi</div>';
+    document.getElementById('arac-satirlar').innerHTML =
+      '<div class="bos-mesaj" id="arac-bos">Henüz araç eklenmedi</div>';
 
     teslimatListesi.forEach(function(t) {
       teslimatlar[t.id] = {
-        adi: t.adi, adres: t.adres, ag: t.agirlik, hc: t.hacim,
+        adi: t.adi, adres: t.adres, ilce: t.ilce, ag: t.agirlik, hc: t.hacim,
         termin: t.termin_tarihi, randevuBas: t.randevu_bas, randevuSon: t.randevu_son,
         arac_id: t.arac_id, lat: t.lat, lon: t.lon, sira: t.sira
       };
@@ -704,26 +867,22 @@ function filoyuYukle() {
       teslimatListesi.forEach(function(t) {
         if (t.arac_id === a.id) teslimatlari.push(t.id);
       });
-      araclar[a.id] = { adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim, plaka: a.plaka, teslimatlar: teslimatlari };
-      aracKutuOlustur(a.id, a.adi, a.tip, a.max_agirlik, a.max_hacim, a.plaka);
-
-      teslimatlari.forEach(function(tid) {
-        var icerik = document.getElementById('arac-' + a.id + '-icerik');
-        var bos = icerik.querySelector('.bos-mesaj');
-        if (bos) bos.remove();
-        icerik.appendChild(chipOlustur(tid));
-      });
-
-      kapasiteGuncelle(a.id);
+      araclar[a.id] = {
+        adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim,
+        plaka: a.plaka, rotaKm: a.rota_km, rotaDk: a.rota_dk, teslimatlar: teslimatlari
+      };
+      aracSatirOlustur(a.id);
     });
 
-    Object.keys(teslimatlar).forEach(function(tid) {
-      if (!teslimatlar[tid].arac_id) {
-        chipHavuzaEkle(parseInt(tid));
-      }
-    });
-
-    havuzSayacGuncelle();
+    // secim yenilemeler arasinda korunur, arac silinmisse ilkine duser
+    if (seciliArac === null || !araclar[seciliArac]) {
+      var ilk = Object.keys(araclar)[0];
+      seciliArac = ilk ? parseInt(ilk) : null;
+    }
+    Object.keys(araclar).forEach(function(k) { aracSatirGuncelle(parseInt(k)); });
+    aracDetayCiz();
+    havuzYenile();
+    aracSayacGuncelle();
   });
 }
 

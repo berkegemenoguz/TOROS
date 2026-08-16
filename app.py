@@ -70,7 +70,9 @@ def arac_listele():
     return jsonify([{
         "id": r.id, "adi": r.adi, "tip": r.tip,
         "max_agirlik": float(r.max_agirlik), "max_hacim": float(r.max_hacim),
-        "plaka": r.plaka
+        "plaka": r.plaka,
+        "rota_km": float(r.son_rota_km) if r.son_rota_km is not None else None,
+        "rota_dk": r.son_rota_dk
     } for r in rows])
 
 
@@ -129,11 +131,12 @@ def arac_sil(arac_id):
 def teslimat_listele():
     session = Session()
     rows = session.execute(text(
-        "SELECT * FROM teslimatlar ORDER BY arac_id NULLS FIRST, sira NULLS LAST, id"
+        "SELECT t.*, a.ilce FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id "
+        "ORDER BY t.arac_id NULLS FIRST, t.sira NULLS LAST, t.id"
     )).fetchall()
     session.close()
     return jsonify([{
-        "id": r.id, "adi": r.adi, "adres": r.adres,
+        "id": r.id, "adi": r.adi, "adres": r.adres, "ilce": r.ilce or "",
         "lat": float(r.lat) if r.lat else None,
         "lon": float(r.lon) if r.lon else None,
         "agirlik": float(r.agirlik), "hacim": float(r.hacim),
@@ -244,9 +247,16 @@ def teslimat_olustur():
     if hata:
         session.close()
         return jsonify({"hata": hata}), 400
+    # ilce ve formatted_address'i donuyoruz ki arayuz yeni teslimati listeyi
+    # bastan cekmeden havuza yerlestirebilsin
+    kayit = session.execute(text(
+        "SELECT a.ilce, t.adres FROM teslimatlar t "
+        "LEFT JOIN adresler a ON a.id = t.adres_id WHERE t.id = :id"
+    ), {"id": yeni_id}).fetchone()
     session.commit()
     session.close()
-    return jsonify({"id": yeni_id})
+    return jsonify({"id": yeni_id, "ilce": (kayit.ilce or "") if kayit else "",
+                    "adres": (kayit.adres or "") if kayit else ""})
 
 
 @app.route("/api/teslimatlar/bulk", methods=["POST"])
@@ -527,6 +537,14 @@ def otomatik_dagit():
         session.execute(text(
             "UPDATE teslimatlar SET sira = NULL WHERE id = ANY(:idler)"
         ), {"idler": acikta})
+
+    # rota metrikleri arayuzde gosterilebilsin diye kaliciya yaziliyor;
+    # rota almayan araclarin eski degerleri temizlenir
+    session.execute(text("UPDATE araclar SET son_rota_km = NULL, son_rota_dk = NULL"))
+    for d in detaylar:
+        session.execute(text(
+            "UPDATE araclar SET son_rota_km = :km, son_rota_dk = :dk WHERE id = :id"
+        ), {"km": d["km"], "dk": d["sure_dk"], "id": d["arac_id"]})
     session.commit()
     session.close()
 
