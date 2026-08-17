@@ -9,7 +9,7 @@ load_dotenv()
 API_KEY = os.getenv("GOOGLE_DIRECTIONS_API_KEY")
 MATRIX_URL = "https://maps.googleapis.com/maps/api/distancematrix/json"
 DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
-TESLIMAT_SURESI = 900  # 15 dakika (saniye)
+TESLIMAT_SURESI = 1500  # 25 dakika (saniye) - filo sayfasi SERVIS_DK ile ayni
 
 
 def sure_matrisi_al(noktalar, kalkis_zamani):

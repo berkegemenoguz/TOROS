@@ -102,15 +102,14 @@ Parametreler `app.py` başında tanımlıdır:
 
 | Parametre | Değer | Açıklama |
 |-----------|-------|----------|
-| `SERVIS_DK` | 20 dk | Teslimat + montaj taban süresi |
-| `KAT_DK` | 2 dk | Her kat için ek süre |
+| `SERVIS_DK` | 25 dk | Teslimat başına sabit süre (montaj + taşıma dahil) |
 | `VARDIYA_DK` | 540 dk | 9 saatlik vardiya |
 | `HIZ_KMH` | 25 km/s | İstanbul içi ortalama hız |
 | `YOL_SAPMA` | 1.35 | Kuş uçuşu → gerçek yol çarpanı |
 | `KOPRU_KM` | 12 km | Boğaz geçişi cezası |
 | `HEDEF_DOLULUK` | %70–82 | Filo boyutlandırma uyarı bandı |
 
-> Kat süresi sonucu en çok değiştiren varsayımdır; sahadan gerçek veri geldiğinde önce burası güncellenmelidir.
+> Servis süresi sonucu en çok değiştiren varsayımdır; sahadan gerçek veri geldiğinde önce burası güncellenmelidir. Sürücü kâğıdındaki "varış saati" alanı bu ölçümün ilk halkasıdır.
 
 **Bilinen sınır:** Clarke-Wright randevu pencerelerini dikkate almaz. Pencere mantığı şu an yalnızca `coklu_teslimat.py` içinde (tek araç yolunda) mevcuttur.
 

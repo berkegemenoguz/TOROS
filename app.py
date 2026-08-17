@@ -1,5 +1,7 @@
 import os
+import io
 import requests
+import segno
 from flask import Flask, request, jsonify, send_file
 from datetime import datetime
 from dotenv import load_dotenv
@@ -131,12 +133,15 @@ def arac_sil(arac_id):
 def teslimat_listele():
     session = Session()
     rows = session.execute(text(
-        "SELECT t.*, a.ilce FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id "
+        "SELECT t.*, a.ilce, a.mahalle, a.sokak, a.bina_no, a.kat, a.daire "
+        "FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id "
         "ORDER BY t.arac_id NULLS FIRST, t.sira NULLS LAST, t.id"
     )).fetchall()
     session.close()
     return jsonify([{
         "id": r.id, "adi": r.adi, "adres": r.adres, "ilce": r.ilce or "",
+        "mahalle": r.mahalle or "", "sokak": r.sokak or "",
+        "bina_no": r.bina_no or "", "kat": r.kat or "", "daire": r.daire or "",
         "lat": float(r.lat) if r.lat else None,
         "lon": float(r.lon) if r.lon else None,
         "agirlik": float(r.agirlik), "hacim": float(r.hacim),
@@ -350,8 +355,7 @@ def teslimat_guncelle(tes_id):
 # Kat suresi sonucu en cok degistiren varsayimdir; sahadan gercek deger
 # geldiginde once burasi guncellenmeli.
 # ---------------------------------------------------------------------------
-SERVIS_DK = 20.0       # teslimat + montaj taban suresi
-KAT_DK = 2.0           # her kat icin ek sure
+SERVIS_DK = 25.0       # teslimat basina sabit sure (montaj + tasima dahil)
 VARDIYA_DK = 540.0     # 9 saatlik vardiya
 HIZ_KMH = 25.0         # Istanbul ici ortalama hiz
 YOL_SAPMA = 1.35       # kus ucusu mesafe -> gercek yol carpani
@@ -380,7 +384,7 @@ def otomatik_dagit():
         "ORDER BY max_hacim, max_agirlik"
     )).fetchall()
     teslimatlar = session.execute(text("""
-        SELECT t.id, t.agirlik, t.hacim, t.lat, t.lon, a.ilce, a.kat
+        SELECT t.id, t.agirlik, t.hacim, t.lat, t.lon, a.ilce
         FROM teslimatlar t
         LEFT JOIN adresler a ON a.id = t.adres_id
         WHERE t.arac_id IS NULL AND t.lat IS NOT NULL AND t.lon IS NOT NULL
@@ -405,7 +409,7 @@ def otomatik_dagit():
         "hc": float(t.hacim or 0),
         "pt": (float(t.lat), float(t.lon)),
         "yaka": "A" if sadelestir(t.ilce) in ANADOLU_ILCELERI else "E",
-        "servis": SERVIS_DK + KAT_DK * int(t.kat or 0),
+        "servis": SERVIS_DK,
     } for t in teslimatlar]
     n = len(tesler)
 
@@ -615,6 +619,43 @@ def teslimat_adres(tes_id):
         "lat": float(row.lat) if row.lat else None, "lon": float(row.lon) if row.lon else None,
         "puan": row.puan,
     })
+
+
+@app.route("/api/araclar/<int:arac_id>/rota-qr", methods=["GET"])
+def arac_rota_qr(arac_id):
+    """Aracin teslimatlarini sira duzeninde Google Maps rota linkine cevirir,
+    QR kodunu SVG olarak dondurur. Yol/path formati kullanilir (waypoints=...
+    parametresine gore daha fazla durak destekler). Google API cagrisi YOK -
+    sadece bir URL uretiyoruz, ucret olusmaz."""
+    session = Session()
+    depo = session.execute(text("SELECT lat, lon FROM depolar ORDER BY id LIMIT 1")).fetchone()
+    duraklar = session.execute(text("""
+        SELECT lat, lon FROM teslimatlar
+        WHERE arac_id = :aid AND lat IS NOT NULL AND lon IS NOT NULL
+        ORDER BY sira NULLS LAST, id
+    """), {"aid": arac_id}).fetchall()
+    session.close()
+
+    if not duraklar:
+        return jsonify({"hata": "Araçta konumlu teslimat yok"}), 404
+
+    noktalar = []
+    if depo:
+        noktalar.append(f"{float(depo.lat):.6f},{float(depo.lon):.6f}")
+    for d in duraklar:
+        noktalar.append(f"{float(d.lat):.6f},{float(d.lon):.6f}")
+
+    # Path formati: /maps/dir/depo/durak1/durak2/.../son
+    url = "https://www.google.com/maps/dir/" + "/".join(noktalar)
+
+    tampon = io.BytesIO()
+    segno.make(url, error="m").save(tampon, kind="svg", scale=1, border=2)
+    svg = tampon.getvalue().decode("utf-8")
+    # inline gomme icin <?xml ...?> on ekini at
+    if svg.lstrip().startswith("<?xml"):
+        svg = svg[svg.index("<svg"):]
+
+    return jsonify({"url": url, "svg": svg, "durak_sayisi": len(duraklar)})
 
 
 @app.route("/api/teslimatlar/<int:tes_id>", methods=["DELETE"])

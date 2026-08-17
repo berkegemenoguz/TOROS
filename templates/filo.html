@@ -191,6 +191,66 @@
   .ilce-grup.kapali .ilce-cipler { display: none; }
 
   .bos-mesaj { color: #9ca3af; font-size: 11px; width: 100%; text-align: center; padding: 20px 0; }
+
+  .btn-yazdir-tum {
+    background: #fff; color: #374151; border: 1px solid #d4d4d8;
+    padding: 4px 10px; font-size: 11px; margin-left: 8px; width: auto; cursor: pointer;
+    border-radius: 2px;
+  }
+  .btn-yazdir-tum:hover { border-color: #c31f3f; color: #c31f3f; }
+  .btn-yazdir {
+    float: right; background: #fff; color: #374151; border: 1px solid #d4d4d8;
+    padding: 3px 10px; font-size: 11px; width: auto; cursor: pointer; border-radius: 2px;
+    margin-right: 6px;
+  }
+  .btn-yazdir:hover { border-color: #c31f3f; color: #c31f3f; }
+  .btn-yazdir:disabled, .btn-yazdir-tum:disabled {
+    color: #c4c4c8; border-color: #e4e4e7; cursor: not-allowed;
+  }
+  .btn-yazdir:disabled:hover, .btn-yazdir-tum:disabled:hover { color: #c4c4c8; border-color: #e4e4e7; }
+
+  /* --- Yazdirma alani: ekranda gizli, sadece baskida gorunur --- */
+  #yazdir-alani { display: none; }
+
+  @media print {
+    @page { size: A4 portrait; margin: 12mm 10mm; }
+    body * { visibility: hidden; }
+    #yazdir-alani, #yazdir-alani * { visibility: visible; }
+    #yazdir-alani {
+      display: block; position: absolute; left: 0; top: 0; width: 100%;
+      color: #000; font-size: 10px;
+    }
+    .yaz-sayfa { page-break-after: always; }
+    .yaz-sayfa:last-child { page-break-after: auto; }
+    .yaz-ust { display: flex; align-items: flex-start; gap: 10px; }
+    .yaz-ust .yaz-sol { flex: 1; min-width: 0; }
+    .yaz-qr { flex-shrink: 0; text-align: center; width: 96px; }
+    .yaz-qr svg { width: 90px; height: 90px; display: block; margin: 0 auto; }
+    .yaz-qr .yaz-qr-not { font-size: 8px; color: #333; margin-top: 1px; line-height: 1.1; }
+    .yaz-baslik { display: flex; align-items: baseline; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 2px; }
+    .yaz-baslik .yaz-arac { font-size: 16px; font-weight: bold; }
+    .yaz-baslik .yaz-plaka { font-size: 12px; margin-left: 8px; }
+    .yaz-baslik .yaz-tarih { margin-left: auto; font-size: 11px; }
+    .yaz-ozet { font-size: 10px; color: #333; margin-bottom: 6px; }
+    .yaz-sofor { font-size: 11px; margin: 4px 0; }
+    .yaz-sofor .cizgi { display: inline-block; border-bottom: 1px solid #000; width: 180px; }
+    table.yaz-tablo { width: 100%; border-collapse: collapse; }
+    table.yaz-tablo th, table.yaz-tablo td {
+      border: 1px solid #000; padding: 4px 5px; text-align: left; vertical-align: top;
+    }
+    table.yaz-tablo th { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 9px; }
+    .yaz-sira { text-align: center; font-weight: bold; font-size: 12px; width: 22px; }
+    .yaz-urun { font-weight: bold; }
+    .yaz-kod { color: #555; font-size: 9px; }
+    .yaz-katdaire { text-align: center; white-space: nowrap; }
+    .yaz-kg { text-align: right; white-space: nowrap; }
+    .yaz-randevu { text-align: center; white-space: nowrap; font-weight: bold; }
+    .yaz-varis, .yaz-imza { width: 60px; }
+    .yaz-kutu { text-align: center; width: 24px; }
+    .yaz-kutu .box { display: inline-block; width: 12px; height: 12px; border: 1.5px solid #000; }
+    .yaz-dipnot { margin-top: 8px; font-size: 9px; color: #444; display: flex; }
+    .yaz-dipnot .imza-alan { margin-left: auto; }
+  }
 </style>
 </head>
 <body>
@@ -306,6 +366,7 @@
         <div class="panel-baslik">
           <h2>Araçlar</h2>
           <span class="sayac" id="arac-sayac">0 araç</span>
+          <button class="btn-yazdir-tum" onclick="tumunuYazdir()" title="Dolu her araç için ayrı sayfa">Tümünü Yazdır</button>
         </div>
         <div class="arac-satirlar" id="arac-satirlar">
           <div class="bos-mesaj" id="arac-bos">Henüz araç eklenmedi</div>
@@ -317,6 +378,8 @@
     </div>
   </div>
 </div>
+
+<div id="yazdir-alani"></div>
 
 <script>
 setTimeout(function() { document.getElementById('splash').classList.add('kapan'); }, 600);
@@ -418,6 +481,11 @@ function aracDetayCiz() {
   kap.innerHTML = ''
     + '<div class="detay-baslik">'
     + '  <button class="arac-sil" onclick="aracSil(' + id + ')">&times;</button>'
+    + (a.rotaKm != null && a.teslimatlar.length
+        ? '  <button class="btn-yazdir" onclick="aracYazdir(' + id + ')">Yazdır</button>'
+        : (a.teslimatlar.length
+            ? '  <button class="btn-yazdir" disabled title="Önce Otomatik Dağıt ile rota oluşturun">Yazdır</button>'
+            : ''))
     + '  <span class="arac-isim">' + a.adi + '</span> <span class="arac-tip">' + a.tip + '</span>'
     + (a.plaka ? ' <span style="color:#9ca3af;font-size:11px;">' + a.plaka + '</span>' : '')
     + '  <div class="detay-ozet">' + ozet.join(' · ') + '</div>'
@@ -446,9 +514,18 @@ function aracDetayCiz() {
 }
 
 function aracSayacGuncelle() {
-  var n = Object.keys(araclar).length, dolu = 0;
-  Object.keys(araclar).forEach(function(k) { if (araclar[k].teslimatlar.length) dolu++; });
+  var n = Object.keys(araclar).length, dolu = 0, rotali = 0;
+  Object.keys(araclar).forEach(function(k) {
+    if (araclar[k].teslimatlar.length) dolu++;
+    if (araclar[k].rotaKm != null && araclar[k].teslimatlar.length) rotali++;
+  });
   document.getElementById('arac-sayac').textContent = n + ' araç · ' + dolu + ' dolu';
+  var btn = document.querySelector('.btn-yazdir-tum');
+  if (btn) {
+    btn.disabled = rotali === 0;
+    btn.title = rotali === 0 ? 'Önce Otomatik Dağıt ile rota oluşturun'
+                             : 'Rotalı ' + rotali + ' araç için ayrı sayfa';
+  }
 }
 
 function aracEkle() {
@@ -857,6 +934,7 @@ function filoyuYukle() {
     teslimatListesi.forEach(function(t) {
       teslimatlar[t.id] = {
         adi: t.adi, adres: t.adres, ilce: t.ilce, ag: t.agirlik, hc: t.hacim,
+        mahalle: t.mahalle, sokak: t.sokak, binaNo: t.bina_no, kat: t.kat, daire: t.daire,
         termin: t.termin_tarihi, randevuBas: t.randevu_bas, randevuSon: t.randevu_son,
         arac_id: t.arac_id, lat: t.lat, lon: t.lon, sira: t.sira
       };
@@ -884,6 +962,149 @@ function filoyuYukle() {
     havuzYenile();
     aracSayacGuncelle();
   });
+}
+
+// --- Yazdirma: surucu teslimat listesi ---------------------------------
+function kacar(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function yazAdres(t) {
+  // sokak + bina no + mahalle; ayristirilmis parca yoksa tam adrese duser
+  var p = [];
+  if (t.sokak) p.push(kacar(t.sokak) + (t.binaNo ? ' No:' + kacar(t.binaNo) : ''));
+  if (t.mahalle) p.push(kacar(t.mahalle) + ' Mah.');
+  if (t.ilce) p.push(kacar(t.ilce));
+  return p.length ? p.join(', ') : kacar(t.adres || '');
+}
+
+function yazUrun(adi) {
+  // "SIP-25742 · Buzdolabı" -> kod ustte kucuk, urun altta kalin
+  var s = String(adi || '');
+  var i = s.indexOf('·');
+  if (i < 0) return '<span class="yaz-urun">' + kacar(s) + '</span>';
+  return '<span class="yaz-kod">' + kacar(s.slice(0, i).trim()) + '</span><br>'
+       + '<span class="yaz-urun">' + kacar(s.slice(i + 1).trim()) + '</span>';
+}
+
+function yazSayfa(aracId, qrSvg) {
+  var a = araclar[aracId];
+  if (!a) return '';
+  var siralı = a.teslimatlar.slice().sort(function(x, y) {
+    var sx = teslimatlar[x] ? teslimatlar[x].sira : null;
+    var sy = teslimatlar[y] ? teslimatlar[y].sira : null;
+    if (sx == null && sy == null) return 0;
+    if (sx == null) return 1;
+    if (sy == null) return -1;
+    return sx - sy;
+  });
+
+  var bugun = new Date().toLocaleDateString('tr-TR',
+    { day: '2-digit', month: 'long', year: 'numeric' });
+  var ozet = [siralı.length + ' teslimat'];
+  if (a.rotaKm != null) ozet.push(Math.round(a.rotaKm) + ' km');
+  if (a.rotaDk != null) {
+    var s = Math.floor(a.rotaDk / 60), d = a.rotaDk % 60;
+    ozet.push('tahmini ' + (s ? s + ' sa ' : '') + d + ' dk');
+  }
+  var topAg = 0;
+  siralı.forEach(function(tid) { if (teslimatlar[tid]) topAg += teslimatlar[tid].ag; });
+  ozet.push('toplam ' + Math.round(topAg) + ' kg');
+
+  var satirlar = siralı.map(function(tid, i) {
+    var t = teslimatlar[tid];
+    if (!t) return '';
+    var kd = (t.kat ? 'K:' + kacar(t.kat) : '') + (t.daire ? ' D:' + kacar(t.daire) : '');
+    var randevu = (t.randevuBas && t.randevuSon)
+      ? kacar(t.randevuBas) + '<br>' + kacar(t.randevuSon) : '—';
+    return '<tr>'
+      + '<td class="yaz-sira">' + (i + 1) + '</td>'
+      + '<td>' + yazUrun(t.adi) + '</td>'
+      + '<td>' + yazAdres(t) + '</td>'
+      + '<td class="yaz-katdaire">' + (kd || '—') + '</td>'
+      + '<td class="yaz-kg">' + Math.round(t.ag) + ' kg</td>'
+      + '<td class="yaz-randevu">' + randevu + '</td>'
+      + '<td class="yaz-varis"></td>'
+      + '<td class="yaz-kutu"><span class="box"></span></td>'
+      + '<td class="yaz-imza"></td>'
+      + '</tr>';
+  }).join('');
+
+  var qrBlok = qrSvg
+    ? '<div class="yaz-qr">' + qrSvg
+        + '<div class="yaz-qr-not">Rotayı açmak için<br>okutun</div></div>'
+    : '';
+
+  return '<div class="yaz-sayfa">'
+    + '<div class="yaz-ust">'
+    + '<div class="yaz-sol">'
+    + '<div class="yaz-baslik">'
+    + '  <span class="yaz-arac">' + kacar(a.adi) + '</span>'
+    + (a.plaka ? '<span class="yaz-plaka">' + kacar(a.plaka) + '</span>' : '')
+    + '  <span class="yaz-tarih">' + bugun + '</span>'
+    + '</div>'
+    + '<div class="yaz-ozet">' + ozet.join(' · ') + '</div>'
+    + '<div class="yaz-sofor">Sürücü: <span class="cizgi"></span></div>'
+    + '</div>'
+    + qrBlok
+    + '</div>'
+    + '<table class="yaz-tablo">'
+    + '<thead><tr>'
+    + '<th class="yaz-sira">#</th><th>Ürün / Sipariş</th><th>Adres</th>'
+    + '<th>Kat/Daire</th><th>Ağırlık</th><th>Randevu</th>'
+    + '<th>Varış Saati</th><th>Yapıl.<br>madı</th><th>İmza</th>'
+    + '</tr></thead>'
+    + '<tbody>' + satirlar + '</tbody>'
+    + '</table>'
+    + '<div class="yaz-dipnot">'
+    + '<span>Yapılamayan teslimatı işaretleyip nedenini not edin. Ürünler araçta kalır, ertesi gün depoya döner.</span>'
+    + '<span class="imza-alan">Sürücü imza: ____________________</span>'
+    + '</div>'
+    + '</div>';
+}
+
+function qrGetir(aracId) {
+  // QR ucu Google Maps rota linkini SVG'ye cevirir; Google API cagrisi yok.
+  return fetch('/api/araclar/' + aracId + '/rota-qr')
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(v) { return v && v.svg ? v.svg : ''; })
+    .catch(function() { return ''; });
+}
+
+function yazdirmaCalistir(aracIdler) {
+  if (!aracIdler.length) { alert('Yazdırılacak araç yok.'); return; }
+  var btnler = document.querySelectorAll('.btn-yazdir, .btn-yazdir-tum');
+  btnler.forEach(function(b) { b.disabled = true; });
+  // once tum QR'lari cek, sonra sayfalari kur ve yazdir
+  Promise.all(aracIdler.map(qrGetir)).then(function(qrler) {
+    var html = aracIdler.map(function(id, i) { return yazSayfa(id, qrler[i]); }).join('');
+    document.getElementById('yazdir-alani').innerHTML = html;
+    window.print();
+  }).catch(function() {
+    alert('QR üretilirken hata oluştu, çıktı QR olmadan hazırlanıyor.');
+    var html = aracIdler.map(function(id) { return yazSayfa(id, ''); }).join('');
+    document.getElementById('yazdir-alani').innerHTML = html;
+    window.print();
+  }).finally(function() {
+    btnler.forEach(function(b) { b.disabled = false; });
+    aracDetayCiz(); // buton disabled durumlarini rotaKm'e gore geri koy
+  });
+}
+
+function aracYazdir(id) {
+  if (!araclar[id] || araclar[id].rotaKm == null) {
+    alert('Önce Otomatik Dağıt ile rota oluşturun.'); return;
+  }
+  yazdirmaCalistir([id]);
+}
+
+function tumunuYazdir() {
+  var rotali = Object.keys(araclar)
+    .filter(function(k) { return araclar[k].rotaKm != null && araclar[k].teslimatlar.length; })
+    .map(function(k) { return parseInt(k); });
+  if (!rotali.length) { alert('Rota oluşturulmuş araç yok. Önce Otomatik Dağıt çalıştırın.'); return; }
+  yazdirmaCalistir(rotali);
 }
 
 filoyuYukle();
