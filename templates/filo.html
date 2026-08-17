@@ -152,8 +152,24 @@
     background: #f4f4f5; padding: 1px 6px;
   }
   .arac-satir .satir-alt { font-size: 10px; color: #9ca3af; margin-top: 1px; }
+  .arac-satir .satir-sofor { font-size: 10px; margin-top: 2px; }
+  .arac-satir .satir-sofor .sofor-dolu { color: #c31f3f; font-weight: 600; }
+  .arac-satir .satir-sofor .sofor-bos { color: #c4c4c8; font-style: italic; }
   .arac-satir .satir-barlar { display: flex; gap: 4px; margin-top: 5px; }
   .arac-satir .satir-barlar .kapasite-bar { flex: 1; margin-top: 0; }
+
+  .sofor-ata { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+  .sofor-ata label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sofor-select {
+    flex: 1; padding: 6px 28px 6px 10px; border: 1px solid #d4d4d8; border-radius: 3px;
+    font-size: 13px; font-family: inherit; background: #fff; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239ca3af'/></svg>");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  .sofor-select:focus { outline: none; border-color: #c31f3f; }
+  .sofor-yok-link { font-size: 11px; color: #c31f3f; text-decoration: none; white-space: nowrap; }
+  .sofor-yok-link:hover { text-decoration: underline; }
 
   .arac-detay {
     flex: 1; min-width: 0; padding: 0;
@@ -391,6 +407,7 @@ setTimeout(function() { document.getElementById('splash').classList.add('kapan')
 
 var araclar = {};
 var teslimatlar = {};
+var soforListesi = [];   // aktif soforler - arac atama menusu icin
 var suruklenen = null;
 
 var tipPreset = {
@@ -449,6 +466,9 @@ function aracSatirGuncelle(id) {
   satir.innerHTML = ''
     + '<div class="satir-ust"><span class="satir-ad">' + a.adi + '</span>'
     + '<span class="satir-adet">' + a.teslimatlar.length + '</span></div>'
+    + '<div class="satir-sofor">' + (a.soforAd
+        ? '<span class="sofor-dolu">' + kacar(a.soforAd) + '</span>'
+        : '<span class="sofor-bos">şoför atanmadı</span>') + '</div>'
     + '<div class="satir-alt">' + (alt.join(' · ') || '&nbsp;') + '</div>'
     + '<div class="satir-barlar">' + bar(y.agOran) + bar(y.hcOran) + '</div>';
   satir.classList.toggle('kapasite-asimi', y.agOran > 100 || y.hcOran > 100);
@@ -470,6 +490,42 @@ function detayKapasiteCiz() {
   var a = araclar[seciliArac], y = aracYuk(seciliArac);
   kap.innerHTML = 'Ağırlık: ' + y.ag.toFixed(1) + ' / ' + a.maxAg + ' kg' + bar(y.agOran)
                 + 'Hacim: ' + y.hc.toFixed(2) + ' / ' + a.maxHc + ' m3' + bar(y.hcOran);
+}
+
+function soforSecenekleri(aracId) {
+  var a = araclar[aracId];
+  var secili = a.soforId;
+  var html = '<select class="sofor-select" onchange="soforAta(' + aracId + ', this.value)">';
+  html += '<option value="">— atanmadı —</option>';
+  soforListesi.forEach(function(s) {
+    html += '<option value="' + s.id + '"' + (s.id === secili ? ' selected' : '') + '>'
+          + kacar(s.ad) + '</option>';
+  });
+  // atanmis sofor pasiflesmis/silinmisse yine de gorunsun
+  if (secili && !soforListesi.some(function(s) { return s.id === secili; })) {
+    html += '<option value="' + secili + '" selected>' + kacar(a.soforAd) + ' (pasif)</option>';
+  }
+  html += '</select>';
+  if (!soforListesi.length) {
+    html += '<a href="/sofor" class="sofor-yok-link">Önce şoför tanımlayın →</a>';
+  }
+  return html;
+}
+
+function soforAta(aracId, soforId) {
+  var sid = soforId ? parseInt(soforId) : null;
+  fetch('/api/araclar/' + aracId + '/sofor', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sofor_id: sid })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(v) {
+    if (v.hata) { alert(v.hata); return; }
+    araclar[aracId].soforId = sid;
+    araclar[aracId].soforAd = v.sofor_ad || '';
+    aracSatirGuncelle(aracId);
+  })
+  .catch(function() { alert('Şoför atama hatası'); });
 }
 
 function aracDetayCiz() {
@@ -494,6 +550,9 @@ function aracDetayCiz() {
     + '  <span class="arac-isim">' + a.adi + '</span> <span class="arac-tip">' + a.tip + '</span>'
     + (a.plaka ? ' <span style="color:#9ca3af;font-size:11px;">' + a.plaka + '</span>' : '')
     + '  <div class="detay-ozet">' + ozet.join(' · ') + '</div>'
+    + '</div>'
+    + '<div class="sofor-ata">'
+    + '  <label>Şoför</label>' + soforSecenekleri(id)
     + '</div>'
     + '<div class="arac-kapasite" id="detay-kap"></div>'
     + '<div class="arac-icerik" id="detay-icerik"></div>';
@@ -926,10 +985,12 @@ function otomatikDagit() {
 function filoyuYukle() {
   Promise.all([
     fetch('/api/araclar').then(function(r) { return r.json(); }),
-    fetch('/api/teslimatlar').then(function(r) { return r.json(); })
+    fetch('/api/teslimatlar').then(function(r) { return r.json(); }),
+    fetch('/api/soforler').then(function(r) { return r.json(); })
   ]).then(function(sonuclar) {
     var aracListesi = sonuclar[0];
     var teslimatListesi = sonuclar[1];
+    soforListesi = (sonuclar[2] || []).filter(function(s) { return s.aktif; });
 
     araclar = {};
     teslimatlar = {};
@@ -952,7 +1013,8 @@ function filoyuYukle() {
       });
       araclar[a.id] = {
         adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim,
-        plaka: a.plaka, rotaKm: a.rota_km, rotaDk: a.rota_dk, teslimatlar: teslimatlari
+        plaka: a.plaka, rotaKm: a.rota_km, rotaDk: a.rota_dk, teslimatlar: teslimatlari,
+        soforId: a.sofor_id, soforAd: a.sofor_ad
       };
       aracSatirOlustur(a.id);
     });
@@ -1050,7 +1112,9 @@ function yazSayfa(aracId, qrSvg) {
     + '  <span class="yaz-tarih">' + bugun + '</span>'
     + '</div>'
     + '<div class="yaz-ozet">' + ozet.join(' · ') + '</div>'
-    + '<div class="yaz-sofor">Sürücü: <span class="cizgi"></span></div>'
+    + '<div class="yaz-sofor">Sürücü: '
+    + (a.soforAd ? '<b>' + kacar(a.soforAd) + '</b>' : '<span class="cizgi"></span>')
+    + '</div>'
     + '</div>'
     + qrBlok
     + '</div>'

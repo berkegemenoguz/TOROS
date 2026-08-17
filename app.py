@@ -72,15 +72,34 @@ def geocode():
 @app.route("/api/araclar", methods=["GET"])
 def arac_listele():
     session = Session()
-    rows = session.execute(text("SELECT * FROM araclar WHERE aktif = TRUE ORDER BY id")).fetchall()
+    rows = session.execute(text(
+        "SELECT a.*, s.ad AS sofor_ad FROM araclar a "
+        "LEFT JOIN soforler s ON s.id = a.sofor_id "
+        "WHERE a.aktif = TRUE ORDER BY a.id"
+    )).fetchall()
     session.close()
     return jsonify([{
         "id": r.id, "adi": r.adi, "tip": r.tip,
         "max_agirlik": float(r.max_agirlik), "max_hacim": float(r.max_hacim),
         "plaka": r.plaka,
         "rota_km": float(r.son_rota_km) if r.son_rota_km is not None else None,
-        "rota_dk": r.son_rota_dk
+        "rota_dk": r.son_rota_dk,
+        "sofor_id": r.sofor_id, "sofor_ad": r.sofor_ad or ""
     } for r in rows])
+
+
+@app.route("/api/araclar/<int:arac_id>/sofor", methods=["PUT"])
+def arac_sofor_ata(arac_id):
+    # sofor_id null gonderilirse atama kaldirilir
+    sofor_id = (request.json or {}).get("sofor_id")
+    session = Session()
+    session.execute(text("UPDATE araclar SET sofor_id = :sid WHERE id = :aid"),
+                    {"sid": sofor_id, "aid": arac_id})
+    session.commit()
+    ad = session.execute(text("SELECT ad FROM soforler WHERE id = :sid"),
+                         {"sid": sofor_id}).scalar() if sofor_id else ""
+    session.close()
+    return jsonify({"ok": True, "sofor_ad": ad or ""})
 
 
 @app.route("/api/araclar", methods=["POST"])
