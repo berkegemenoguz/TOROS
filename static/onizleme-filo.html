@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOROS — Filo Yönetimi (Yeni Kimlik v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --kirmizi: #c31f3f; --kirmizi-koyu: #a81833; --kirmizi-soluk: #fbeaec;
+    --metin: #1a1420; --gri: #8a8590; --cizgi: #efedf0; --zemin: #f6f4f7;
+    --plaka-mavi: #0a3d91;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif; color: var(--metin);
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--zemin);
+  }
+  .ust {
+    background: #fff; border-bottom: 1px solid var(--cizgi); padding: 12px 22px;
+    display: flex; align-items: center; gap: 22px; flex-shrink: 0; z-index: 10;
+  }
+  .marka { display: flex; align-items: center; gap: 11px; }
+  .marka .logo-kutu {
+    width: 36px; height: 36px; background: var(--kirmizi); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; color: #fff;
+  }
+  .marka .logo-kutu svg { width: 22px; height: 22px; fill: #fff; }
+  .marka .ad { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .pill { display: flex; gap: 4px; background: var(--zemin); padding: 5px; border-radius: 13px; }
+  .pill a { padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--metin); text-decoration: none; }
+  .pill a.aktif { background: var(--kirmizi); color: #fff; font-weight: 700; box-shadow: 0 2px 8px rgba(195,31,63,0.3); }
+
+  /* FILO DURUM SERIDI — operasyon paneli hissi */
+  .durum-serit { display: flex; gap: 12px; padding: 14px 14px 0; }
+  .stat {
+    background: #fff; border: 1px solid var(--cizgi); border-radius: 14px; padding: 12px 16px; flex: 1;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .stat .ikon {
+    width: 34px; height: 34px; border-radius: 10px; background: var(--kirmizi-soluk); color: var(--kirmizi);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .stat .ikon svg { width: 18px; height: 18px; fill: var(--kirmizi); }
+  .stat .deger { font-size: 20px; font-weight: 800; line-height: 1; }
+  .stat .etiket { font-size: 11px; color: var(--gri); font-weight: 600; margin-top: 3px; }
+  .stat.uyari .deger { color: var(--kirmizi); }
+
+  .govde { display: flex; gap: 14px; padding: 14px; flex: 1; min-height: 0; }
+  .kart { background: #fff; border: 1px solid var(--cizgi); border-radius: 16px; padding: 18px; }
+  .baslik { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .baslik::before { content: ''; width: 4px; height: 15px; background: var(--kirmizi); border-radius: 2px; }
+  .sayac { font-size: 12px; color: var(--gri); font-weight: 500; margin-left: auto; }
+
+  .sol { width: 190px; flex-shrink: 0; }
+  .etk { font-size: 12px; color: var(--gri); font-weight: 600; margin: 12px 0 5px; }
+  .girdi {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--cizgi); border-radius: 10px;
+    font-family: inherit; font-size: 13px; font-weight: 500; color: var(--metin);
+  }
+  .btn-dolu {
+    width: 100%; padding: 11px; background: var(--kirmizi); color: #fff; border: none;
+    border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 14px;
+  }
+
+  /* TURK PLAKASI */
+  .plaka {
+    display: inline-flex; align-items: stretch; border: 1.5px solid #2a2530; border-radius: 4px;
+    overflow: hidden; font-weight: 800; height: 20px; flex-shrink: 0;
+  }
+  .plaka .tr {
+    background: var(--plaka-mavi); color: #fff; font-size: 7px; padding: 0 3px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
+  }
+  .plaka .tr b { font-size: 9px; }
+  .plaka .no {
+    background: #fff; color: #1a1420; padding: 0 7px; font-size: 12px; letter-spacing: 0.5px;
+    display: flex; align-items: center; font-variant-numeric: tabular-nums;
+  }
+  .plaka.mini { height: 17px; }
+  .plaka.mini .no { font-size: 10px; padding: 0 5px; }
+  .plaka.mini .tr { font-size: 6px; } .plaka.mini .tr b { font-size: 7px; }
+
+  /* ARAC LISTESI — panelvan silueti + plaka */
+  .orta { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; }
+  .liste { overflow-y: auto; display: flex; flex-direction: column; gap: 9px; }
+  .arac { border: 1.5px solid var(--cizgi); border-radius: 12px; padding: 11px 13px; cursor: pointer; }
+  .arac.secili { border-color: var(--kirmizi); background: var(--kirmizi-soluk); }
+  .arac-ust { display: flex; align-items: center; gap: 9px; }
+  .arac-van { width: 30px; height: 20px; flex-shrink: 0; color: var(--kirmizi); }
+  .arac-van svg { width: 100%; height: 100%; fill: currentColor; }
+  .arac-ad { font-weight: 700; font-size: 13px; }
+  .rozet { font-size: 11px; font-weight: 700; color: #fff; background: var(--kirmizi); padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+  .arac-alt { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .arac-sofor { font-size: 11px; color: var(--gri); font-weight: 600; }
+  .arac-sofor.bos { color: #c9c5cf; font-style: italic; }
+  .yaka { font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 5px; }
+  .yaka.A { background: #e8f0fe; color: var(--plaka-mavi); }
+  .yaka.E { background: var(--kirmizi-soluk); color: var(--kirmizi); }
+  .barlar { display: flex; gap: 4px; margin-top: 8px; }
+  .mini-bar { flex: 1; height: 5px; background: var(--cizgi); border-radius: 3px; overflow: hidden; }
+  .mini-bar span { display: block; height: 100%; background: var(--kirmizi); }
+
+  .sag { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  .detay-ust { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .detay-van { width: 38px; height: 26px; color: var(--kirmizi); }
+  .detay-van svg { width: 100%; height: 100%; fill: currentColor; }
+  .detay-ad { font-size: 17px; font-weight: 800; white-space: nowrap; }
+  .btn-yazdir {
+    margin-left: auto; padding: 8px 16px; border: 1.5px solid var(--cizgi); background: #fff;
+    border-radius: 9px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--metin); cursor: pointer;
+  }
+  .detay-ozet { font-size: 12px; color: var(--gri); font-weight: 600; }
+  .sofor-satir { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+  .sofor-satir .etk2 { font-size: 12px; color: var(--gri); font-weight: 700; }
+  .sofor-sec {
+    flex: 1; max-width: 220px; padding: 9px 12px; border: 1.5px solid var(--cizgi); border-radius: 10px;
+    font-family: inherit; font-size: 13px; font-weight: 600; color: var(--metin); background: #fff;
+  }
+  .cipler { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .cip {
+    background: #fff; border: 1.5px solid var(--cizgi); border-radius: 10px; padding: 7px 11px 7px 8px;
+    font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+  }
+  .cip .no { background: var(--kirmizi); color: #fff; border-radius: 6px; width: 18px; height: 18px;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .cip .esya { width: 16px; height: 16px; color: var(--metin); }
+  .cip .esya svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .havuz { flex-shrink: 0; }
+  .btn-dagit {
+    margin-left: 12px; padding: 8px 16px; background: var(--kirmizi); color: #fff; border: none;
+    border-radius: 9px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- ikonlar -->
+<svg style="display:none">
+  <symbol id="van" viewBox="0 0 48 30">
+    <path d="M2 4 h26 v13 h16 l0 0 -6 -9 h-4 v-4 M2 4 v18 h2 a4 4 0 0 1 8 0 h14 a4 4 0 0 1 8 0 h6 a2 2 0 0 0 2 -2 v-5 h-16 v-9z"/>
+    <circle cx="8" cy="23" r="3.2"/><circle cx="32" cy="23" r="3.2"/>
+  </symbol>
+  <symbol id="buzdolabi" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><line x1="9" y1="5" x2="9" y2="8"/><line x1="9" y1="13" x2="9" y2="16"/></symbol>
+  <symbol id="camasir" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="14" r="4.5"/><circle cx="7.5" cy="6.5" r="0.8" fill="currentColor"/></symbol>
+  <symbol id="firin" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="9" x2="20" y2="9"/><circle cx="12" cy="15" r="3.5"/><circle cx="7" cy="6.5" r="0.7" fill="currentColor"/></symbol>
+</svg>
+
+<div class="ust">
+  <div class="marka"><div class="logo-kutu"><svg viewBox="0 0 48 30"><use href="#van"/></svg></div><div class="ad">TOROS</div></div>
+  <nav class="pill">
+    <a href="#">Rota Optimizasyonu</a>
+    <a href="#" class="aktif">Filo Yönetimi</a>
+    <a href="#">Şoför Yönetimi</a>
+  </nav>
+</div>
+
+<div class="durum-serit">
+  <div class="stat"><div class="ikon"><svg viewBox="0 0 48 30"><use href="#van"/></svg></div>
+    <div><div class="deger">18</div><div class="etiket">Aktif araç</div></div></div>
+  <div class="stat"><div class="ikon"><svg viewBox="0 0 24 24"><use href="#buzdolabi"/></svg></div>
+    <div><div class="deger">156</div><div class="etiket">Teslimat</div></div></div>
+  <div class="stat"><div class="ikon"><svg viewBox="0 0 24 24" style="fill:none;stroke:var(--kirmizi);stroke-width:2"><path d="M4 20 v-6 M10 20 v-11 M16 20 v-8 M22 20 v-14"/></svg></div>
+    <div><div class="deger">%74</div><div class="etiket">Filo doluluğu</div></div></div>
+  <div class="stat uyari"><div class="ikon"><svg viewBox="0 0 24 24" style="fill:none;stroke:var(--kirmizi);stroke-width:2"><circle cx="12" cy="12" r="9"/><path d="M12 7 v5 l3 3"/></svg></div>
+    <div><div class="deger">%91</div><div class="etiket">Vardiya kullanımı</div></div></div>
+</div>
+
+<div class="govde">
+  <div class="kart sol">
+    <div class="baslik">Araç Ekle</div>
+    <div class="etk">Araç Adı</div><input class="girdi" placeholder="Panelvan 19">
+    <div class="etk">Plaka</div><input class="girdi" placeholder="34 HRZ 019">
+    <div class="etk">Max Ağırlık</div><input class="girdi" value="1100">
+    <button class="btn-dolu">Araç Ekle</button>
+  </div>
+
+  <div class="kart orta">
+    <div class="baslik">Araçlar <span class="sayac">18 · 17 dolu</span></div>
+    <div class="liste">
+      <div class="arac secili">
+        <div class="arac-ust"><div class="arac-van"><svg viewBox="0 0 48 30"><use href="#van"/></svg></div>
+          <span class="arac-ad">Panelvan 01</span><span class="rozet">11</span></div>
+        <div class="arac-alt"><span class="plaka mini"><span class="tr"><b>TR</b></span><span class="no">34 HRZ 001</span></span>
+          <span class="arac-sofor">Ahmet Yılmaz</span><span class="yaka E">AVR</span></div>
+        <div class="barlar"><div class="mini-bar"><span style="width:78%"></span></div><div class="mini-bar"><span style="width:64%"></span></div></div>
+      </div>
+      <div class="arac">
+        <div class="arac-ust"><div class="arac-van"><svg viewBox="0 0 48 30"><use href="#van"/></svg></div>
+          <span class="arac-ad">Panelvan 02</span><span class="rozet">9</span></div>
+        <div class="arac-alt"><span class="plaka mini"><span class="tr"><b>TR</b></span><span class="no">34 HRZ 002</span></span>
+          <span class="arac-sofor">Mehmet Demir</span><span class="yaka E">AVR</span></div>
+        <div class="barlar"><div class="mini-bar"><span style="width:64%"></span></div><div class="mini-bar"><span style="width:55%"></span></div></div>
+      </div>
+      <div class="arac">
+        <div class="arac-ust"><div class="arac-van"><svg viewBox="0 0 48 30"><use href="#van"/></svg></div>
+          <span class="arac-ad">Panelvan 09</span><span class="rozet">11</span></div>
+        <div class="arac-alt"><span class="plaka mini"><span class="tr"><b>TR</b></span><span class="no">34 HRZ 009</span></span>
+          <span class="arac-sofor bos">şoför atanmadı</span><span class="yaka A">AND</span></div>
+        <div class="barlar"><div class="mini-bar"><span style="width:71%"></span></div><div class="mini-bar"><span style="width:60%"></span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sag">
+    <div class="kart" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <div class="detay-ust">
+        <div class="detay-van"><svg viewBox="0 0 48 30"><use href="#van"/></svg></div>
+        <span class="detay-ad">Panelvan 01</span>
+        <span class="plaka"><span class="tr"><b>TR</b></span><span class="no">34 HRZ 001</span></span>
+        <button class="btn-yazdir">Yazdır</button>
+      </div>
+      <div class="detay-ozet">11 teslimat · 64.6 km · 491 dk · Avrupa yakası</div>
+      <div class="sofor-satir"><span class="etk2">ŞOFÖR</span>
+        <select class="sofor-sec"><option>Ahmet Yılmaz</option></select></div>
+      <div class="barlar" style="margin-top:2px;">
+        <div class="mini-bar" style="height:8px;"><span style="width:78%"></span></div>
+        <div class="mini-bar" style="height:8px;"><span style="width:64%"></span></div>
+      </div>
+      <div class="cipler">
+        <div class="cip"><span class="no">1</span><span class="esya"><svg viewBox="0 0 24 24"><use href="#buzdolabi"/></svg></span>Buzdolabı · Fatih</div>
+        <div class="cip"><span class="no">2</span><span class="esya"><svg viewBox="0 0 24 24"><use href="#camasir"/></svg></span>Çamaşır Mak. · Şişli</div>
+        <div class="cip"><span class="no">3</span><span class="esya"><svg viewBox="0 0 24 24"><use href="#firin"/></svg></span>Fırın · Beşiktaş</div>
+        <div class="cip"><span class="no">4</span><span class="esya"><svg viewBox="0 0 24 24"><use href="#camasir"/></svg></span>Kurutma · Sarıyer</div>
+      </div>
+    </div>
+
+    <div class="kart havuz">
+      <div class="baslik">Atanmamış Teslimatlar <span class="sayac">6 · 3 ilçe</span>
+        <button class="btn-dagit">Otomatik Dağıt</button></div>
+      <div class="cipler" style="margin-top:0;">
+        <div class="cip"><span class="esya"><svg viewBox="0 0 24 24"><use href="#buzdolabi"/></svg></span>Buzdolabı · Kadıköy</div>
+        <div class="cip"><span class="esya"><svg viewBox="0 0 24 24"><use href="#firin"/></svg></span>Fırın · Maltepe</div>
+        <div class="cip"><span class="esya"><svg viewBox="0 0 24 24"><use href="#camasir"/></svg></span>Klima · Pendik</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOROS — Yeni Kimlik Önizleme</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --kirmizi: #c31f3f;
+    --kirmizi-koyu: #a81833;
+    --kirmizi-soluk: #fbeaec;
+    --metin: #1a1420;
+    --gri: #8a8590;
+    --cizgi: #efedf0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--metin); height: 100vh; display: flex; overflow: hidden;
+    background: #fff;
+  }
+
+  /* SOL PANEL — beyaz baskin, kirmizi es-basrol */
+  .panel {
+    width: 380px; flex-shrink: 0; background: #fff; border-right: 1px solid var(--cizgi);
+    display: flex; flex-direction: column; z-index: 10;
+  }
+  .marka {
+    padding: 22px 26px 18px; border-bottom: 1px solid var(--cizgi);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .marka .logo-kutu {
+    width: 40px; height: 40px; background: var(--kirmizi); border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 20px; letter-spacing: -1px;
+  }
+  .marka .ad { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .marka .alt { font-size: 12px; color: var(--gri); font-weight: 500; margin-top: 1px; }
+
+  .panel-govde { padding: 22px 26px; overflow-y: auto; flex: 1; }
+  .bolum-baslik {
+    font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .bolum-baslik::before {
+    content: ''; width: 4px; height: 16px; background: var(--kirmizi); border-radius: 2px;
+  }
+
+  .girdi {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--cizgi); border-radius: 11px;
+    font-size: 14px; font-family: inherit; font-weight: 500; color: var(--metin); margin-bottom: 8px;
+  }
+  .girdi:focus { outline: none; border-color: var(--kirmizi); }
+  .girdi::placeholder { color: #bdb9c2; }
+
+  .ara-btn {
+    width: 100%; padding: 13px; background: var(--kirmizi); color: #fff; border: none;
+    border-radius: 11px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+    margin-top: 4px;
+  }
+
+  .arac-liste { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+  .arac {
+    border: 1.5px solid var(--cizgi); border-radius: 13px; padding: 13px 15px; cursor: pointer;
+    transition: border-color .15s;
+  }
+  .arac:hover { border-color: #dcd9e0; }
+  .arac.secili { border-color: var(--kirmizi); background: var(--kirmizi-soluk); }
+  .arac-ust { display: flex; align-items: center; justify-content: space-between; }
+  .arac-ad { font-weight: 700; font-size: 14px; }
+  .arac-rozet {
+    font-size: 12px; font-weight: 700; color: #fff; background: var(--kirmizi);
+    padding: 2px 9px; border-radius: 20px;
+  }
+  .arac-sofor { font-size: 12px; color: var(--gri); font-weight: 500; margin-top: 3px; }
+  .arac-bar { height: 6px; background: var(--cizgi); border-radius: 3px; margin-top: 9px; overflow: hidden; }
+  .arac-bar span { display: block; height: 100%; background: var(--kirmizi); border-radius: 3px; }
+
+  /* HARITA — full bleed */
+  .harita {
+    flex: 1; position: relative;
+    background:
+      linear-gradient(0deg, rgba(195,31,63,0.03), rgba(195,31,63,0.03)),
+      repeating-linear-gradient(45deg, #f7f6f8 0 2px, transparent 2px 26px),
+      repeating-linear-gradient(-45deg, #f4f2f5 0 2px, transparent 2px 26px),
+      #faf9fb;
+  }
+  .harita-etiket {
+    position: absolute; top: 20px; left: 24px; font-size: 13px; font-weight: 600; color: #cfc9d4;
+  }
+  .harita .pin {
+    position: absolute; width: 16px; height: 16px; background: var(--kirmizi); border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); box-shadow: 0 3px 8px rgba(195,31,63,0.4);
+  }
+  .harita .pin::after {
+    content: ''; position: absolute; inset: 5px; background: #fff; border-radius: 50%;
+  }
+
+  /* FLOATING NAV — haritanin imzasi, beyaz+kirmizi ortak */
+  .yuzen-nav {
+    position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: #fff; border-radius: 16px; padding: 6px;
+    box-shadow: 0 8px 30px rgba(26,20,32,0.18), 0 2px 6px rgba(26,20,32,0.08);
+    display: flex; gap: 4px; z-index: 20;
+  }
+  .yuzen-nav a {
+    padding: 11px 22px; border-radius: 11px; font-size: 14px; font-weight: 600;
+    color: var(--metin); text-decoration: none; white-space: nowrap;
+  }
+  .yuzen-nav a:hover { background: #f6f4f7; }
+  .yuzen-nav a.aktif { background: var(--kirmizi); color: #fff; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <div class="marka">
+    <div class="logo-kutu">T</div>
+    <div>
+      <div class="ad">TOROS</div>
+      <div class="alt">Horoz Lojistik</div>
+    </div>
+  </div>
+  <div class="panel-govde">
+    <div class="bolum-baslik">Depo Konumu</div>
+    <input class="girdi" value="Bakırköy Meydanı, İstanbul">
+    <button class="ara-btn">Rotayı Optimize Et</button>
+
+    <div class="bolum-baslik" style="margin-top:28px;">Filo Araçları</div>
+    <div class="arac-liste">
+      <div class="arac secili">
+        <div class="arac-ust"><span class="arac-ad">Panelvan 01</span><span class="arac-rozet">11</span></div>
+        <div class="arac-sofor">Ahmet Yılmaz · 34 HRZ 001</div>
+        <div class="arac-bar"><span style="width:78%"></span></div>
+      </div>
+      <div class="arac">
+        <div class="arac-ust"><span class="arac-ad">Panelvan 02</span><span class="arac-rozet">9</span></div>
+        <div class="arac-sofor">Mehmet Demir · 34 HRZ 002</div>
+        <div class="arac-bar"><span style="width:64%"></span></div>
+      </div>
+      <div class="arac">
+        <div class="arac-ust"><span class="arac-ad">Panelvan 03</span><span class="arac-rozet">10</span></div>
+        <div class="arac-sofor" style="color:#bdb9c2;font-style:italic;">şoför atanmadı</div>
+        <div class="arac-bar"><span style="width:71%"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="harita">
+  <div class="harita-etiket">HARİTA</div>
+  <div class="pin" style="top:32%;left:38%;"></div>
+  <div class="pin" style="top:48%;left:55%;"></div>
+  <div class="pin" style="top:60%;left:44%;"></div>
+  <div class="pin" style="top:40%;left:66%;"></div>
+
+  <nav class="yuzen-nav">
+    <a href="#" class="aktif">Rota Optimizasyonu</a>
+    <a href="#">Filo Yönetimi</a>
+    <a href="#">Şoför Yönetimi</a>
+  </nav>
+</div>
+
+</body>
+</html>

@@ -158,18 +158,11 @@
   .arac-satir .satir-barlar { display: flex; gap: 4px; margin-top: 5px; }
   .arac-satir .satir-barlar .kapasite-bar { flex: 1; margin-top: 0; }
 
-  .sofor-ata { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+  .sofor-ata { display: flex; align-items: center; gap: 8px; margin: 10px 14px 4px; }
   .sofor-ata label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-  .sofor-select {
-    flex: 1; padding: 6px 28px 6px 10px; border: 1px solid #d4d4d8; border-radius: 3px;
-    font-size: 13px; font-family: inherit; background: #fff; cursor: pointer;
-    -webkit-appearance: none; appearance: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239ca3af'/></svg>");
-    background-repeat: no-repeat; background-position: right 10px center;
-  }
-  .sofor-select:focus { outline: none; border-color: #c31f3f; }
-  .sofor-yok-link { font-size: 11px; color: #c31f3f; text-decoration: none; white-space: nowrap; }
-  .sofor-yok-link:hover { text-decoration: underline; }
+  .sofor-ata .sofor-dolu { font-size: 13px; font-weight: 600; color: #c31f3f; }
+  .sofor-atama-link { font-size: 12px; color: #9ca3af; text-decoration: none; font-style: italic; }
+  .sofor-atama-link:hover { color: #c31f3f; text-decoration: underline; }
 
   .arac-detay {
     flex: 1; min-width: 0; padding: 0;
@@ -407,7 +400,6 @@ setTimeout(function() { document.getElementById('splash').classList.add('kapan')
 
 var araclar = {};
 var teslimatlar = {};
-var soforListesi = [];   // aktif soforler - arac atama menusu icin
 var suruklenen = null;
 
 var tipPreset = {
@@ -492,40 +484,13 @@ function detayKapasiteCiz() {
                 + 'Hacim: ' + y.hc.toFixed(2) + ' / ' + a.maxHc + ' m3' + bar(y.hcOran);
 }
 
-function soforSecenekleri(aracId) {
+// Sofor gostergesi salt-okunur; atama Sofor Yonetimi sayfasinda yapiliyor.
+function soforGostergesi(aracId) {
   var a = araclar[aracId];
-  var secili = a.soforId;
-  var html = '<select class="sofor-select" onchange="soforAta(' + aracId + ', this.value)">';
-  html += '<option value="">— atanmadı —</option>';
-  soforListesi.forEach(function(s) {
-    html += '<option value="' + s.id + '"' + (s.id === secili ? ' selected' : '') + '>'
-          + kacar(s.ad) + '</option>';
-  });
-  // atanmis sofor pasiflesmis/silinmisse yine de gorunsun
-  if (secili && !soforListesi.some(function(s) { return s.id === secili; })) {
-    html += '<option value="' + secili + '" selected>' + kacar(a.soforAd) + ' (pasif)</option>';
+  if (a.soforAd) {
+    return '<span class="sofor-dolu">' + kacar(a.soforAd) + '</span>';
   }
-  html += '</select>';
-  if (!soforListesi.length) {
-    html += '<a href="/sofor" class="sofor-yok-link">Önce şoför tanımlayın →</a>';
-  }
-  return html;
-}
-
-function soforAta(aracId, soforId) {
-  var sid = soforId ? parseInt(soforId) : null;
-  fetch('/api/araclar/' + aracId + '/sofor', {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sofor_id: sid })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(v) {
-    if (v.hata) { alert(v.hata); return; }
-    araclar[aracId].soforId = sid;
-    araclar[aracId].soforAd = v.sofor_ad || '';
-    aracSatirGuncelle(aracId);
-  })
-  .catch(function() { alert('Şoför atama hatası'); });
+  return '<a href="/sofor" class="sofor-atama-link">atanmadı — Şoför Yönetimi\'nden ata →</a>';
 }
 
 function aracDetayCiz() {
@@ -552,7 +517,7 @@ function aracDetayCiz() {
     + '  <div class="detay-ozet">' + ozet.join(' · ') + '</div>'
     + '</div>'
     + '<div class="sofor-ata">'
-    + '  <label>Şoför</label>' + soforSecenekleri(id)
+    + '  <label>Şoför</label>' + soforGostergesi(id)
     + '</div>'
     + '<div class="arac-kapasite" id="detay-kap"></div>'
     + '<div class="arac-icerik" id="detay-icerik"></div>';
@@ -985,12 +950,10 @@ function otomatikDagit() {
 function filoyuYukle() {
   Promise.all([
     fetch('/api/araclar').then(function(r) { return r.json(); }),
-    fetch('/api/teslimatlar').then(function(r) { return r.json(); }),
-    fetch('/api/soforler').then(function(r) { return r.json(); })
+    fetch('/api/teslimatlar').then(function(r) { return r.json(); })
   ]).then(function(sonuclar) {
     var aracListesi = sonuclar[0];
     var teslimatListesi = sonuclar[1];
-    soforListesi = (sonuclar[2] || []).filter(function(s) { return s.aktif; });
 
     araclar = {};
     teslimatlar = {};

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOROS — Şoför Yönetimi (Yeni Kimlik v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --kirmizi: #c31f3f; --kirmizi-koyu: #a81833; --kirmizi-soluk: #fbeaec;
+    --metin: #1a1420; --gri: #8a8590; --cizgi: #efedf0; --zemin: #f6f4f7;
+    --plaka-mavi: #0a3d91; --yesil: #159a5a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif; color: var(--metin);
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--zemin);
+  }
+  .ust {
+    background: #fff; border-bottom: 1px solid var(--cizgi); padding: 12px 22px;
+    display: flex; align-items: center; gap: 22px; flex-shrink: 0;
+  }
+  .marka { display: flex; align-items: center; gap: 11px; }
+  .marka .logo-kutu {
+    width: 36px; height: 36px; background: var(--kirmizi); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .marka .logo-kutu svg { width: 22px; height: 22px; fill: #fff; }
+  .marka .ad { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .pill { display: flex; gap: 4px; background: var(--zemin); padding: 5px; border-radius: 13px; }
+  .pill a { padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--metin); text-decoration: none; }
+  .pill a.aktif { background: var(--kirmizi); color: #fff; font-weight: 700; box-shadow: 0 2px 8px rgba(195,31,63,0.3); }
+
+  .govde { display: flex; gap: 14px; padding: 14px; flex: 1; min-height: 0; }
+  .kart { background: #fff; border: 1px solid var(--cizgi); border-radius: 16px; padding: 18px; }
+  .baslik { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .baslik::before { content: ''; width: 4px; height: 15px; background: var(--kirmizi); border-radius: 2px; }
+  .sayac { font-size: 12px; color: var(--gri); font-weight: 500; margin-left: auto; }
+
+  .sol { width: 290px; flex-shrink: 0; }
+  .etk { font-size: 12px; color: var(--gri); font-weight: 600; margin: 12px 0 5px; }
+  .girdi {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--cizgi); border-radius: 10px;
+    font-family: inherit; font-size: 13px; font-weight: 500; color: var(--metin);
+  }
+  .btn-konum {
+    width: 100%; padding: 9px; background: #fff; color: var(--metin); border: 1.5px solid var(--cizgi);
+    border-radius: 10px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 6px;
+  }
+  .btn-dolu {
+    width: 100%; padding: 11px; background: var(--kirmizi); color: #fff; border: none;
+    border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 14px;
+  }
+  .onay { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; font-weight: 600; }
+
+  /* TURK PLAKASI */
+  .plaka {
+    display: inline-flex; align-items: stretch; border: 1.5px solid #2a2530; border-radius: 4px;
+    overflow: hidden; font-weight: 800; height: 19px;
+  }
+  .plaka .tr {
+    background: var(--plaka-mavi); color: #fff; font-size: 7px; padding: 0 3px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .plaka .no { background: #fff; color: #1a1420; padding: 0 6px; font-size: 11px; letter-spacing: 0.5px; display: flex; align-items: center; }
+
+  /* SOFOR ROSTER */
+  .sag { flex: 1; min-width: 0; }
+  .sofor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .sofor-kart {
+    border: 1.5px solid var(--cizgi); border-radius: 16px; padding: 15px 16px; position: relative;
+  }
+  .sofor-kart.pasif { opacity: 0.7; }
+  .kart-ust { display: flex; align-items: center; gap: 11px; }
+  .avatar {
+    width: 42px; height: 42px; border-radius: 12px; background: var(--kirmizi); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;
+  }
+  .avatar.pasif { background: #d9d5de; }
+  .sofor-ad { font-weight: 800; font-size: 15px; }
+  .durum { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+  .durum .nokta { width: 7px; height: 7px; border-radius: 50%; background: var(--yesil); }
+  .durum.aktif { color: var(--yesil); }
+  .durum.pasif { color: var(--gri); } .durum.pasif .nokta { background: #c4c0ca; }
+  .islem { position: absolute; top: 14px; right: 14px; display: flex; gap: 9px; }
+  .islem span { color: #c4c0ca; font-size: 14px; cursor: pointer; }
+
+  .kart-alt { margin-top: 13px; border-top: 1px solid var(--cizgi); padding-top: 11px; display: flex; flex-direction: column; gap: 7px; }
+  .kart-satir { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: #5a555f; }
+  .kart-satir .e { color: var(--gri); width: 42px; flex-shrink: 0; }
+  .yaka { font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 5px; }
+  .yaka.A { background: #e8f0fe; color: var(--plaka-mavi); }
+  .yaka.E { background: var(--kirmizi-soluk); color: var(--kirmizi); }
+  .arac-yok { font-size: 12px; color: #c9a96a; font-weight: 600; }
+  .konum-var { color: var(--yesil); } .konum-yok { color: #d97706; }
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+  <symbol id="van" viewBox="0 0 48 30">
+    <path d="M2 4 h26 v13 h16 l0 0 -6 -9 h-4 v-4 M2 4 v18 h2 a4 4 0 0 1 8 0 h14 a4 4 0 0 1 8 0 h6 a2 2 0 0 0 2 -2 v-5 h-16 v-9z"/>
+    <circle cx="8" cy="23" r="3.2"/><circle cx="32" cy="23" r="3.2"/>
+  </symbol>
+</svg>
+
+<div class="ust">
+  <div class="marka"><div class="logo-kutu"><svg viewBox="0 0 48 30"><use href="#van"/></svg></div><div class="ad">TOROS</div></div>
+  <nav class="pill">
+    <a href="#">Rota Optimizasyonu</a>
+    <a href="#">Filo Yönetimi</a>
+    <a href="#" class="aktif">Şoför Yönetimi</a>
+  </nav>
+</div>
+
+<div class="govde">
+  <div class="kart sol">
+    <div class="baslik">Şoför Ekle</div>
+    <div class="etk">Ad Soyad</div><input class="girdi" placeholder="Ahmet Yılmaz">
+    <div class="etk">Telefon</div><input class="girdi" placeholder="0532 000 00 00">
+    <div class="etk">Ev Adresi</div><input class="girdi" placeholder="Mahalle, sokak, ilçe...">
+    <button class="btn-konum">Konumu Bul (Google)</button>
+    <div class="onay"><input type="checkbox" checked> Aktif</div>
+    <button class="btn-dolu">Şoför Ekle</button>
+  </div>
+
+  <div class="kart sag">
+    <div class="baslik">Şoförler <span class="sayac">4 şoför · 3 aktif</span></div>
+    <div class="sofor-grid">
+      <div class="sofor-kart">
+        <div class="islem"><span>✎</span><span>✕</span></div>
+        <div class="kart-ust"><div class="avatar">AY</div>
+          <div><div class="sofor-ad">Ahmet Yılmaz</div><div class="durum aktif"><span class="nokta"></span>Aktif</div></div></div>
+        <div class="kart-alt">
+          <div class="kart-satir"><span class="e">Araç</span><span class="plaka"><span class="tr">TR</span><span class="no">34 HRZ 001</span></span><span class="yaka A">Anadolu</span></div>
+          <div class="kart-satir"><span class="e">Telefon</span>0532 111 22 33</div>
+          <div class="kart-satir"><span class="e">Ev</span>Pendik, İstanbul <span class="konum-var">· 📍 kayıtlı</span></div>
+        </div>
+      </div>
+
+      <div class="sofor-kart">
+        <div class="islem"><span>✎</span><span>✕</span></div>
+        <div class="kart-ust"><div class="avatar">MD</div>
+          <div><div class="sofor-ad">Mehmet Demir</div><div class="durum aktif"><span class="nokta"></span>Aktif</div></div></div>
+        <div class="kart-alt">
+          <div class="kart-satir"><span class="e">Araç</span><span class="plaka"><span class="tr">TR</span><span class="no">34 HRZ 002</span></span><span class="yaka E">Avrupa</span></div>
+          <div class="kart-satir"><span class="e">Telefon</span>0533 444 55 66</div>
+          <div class="kart-satir"><span class="e">Ev</span>Kadıköy, İstanbul <span class="konum-var">· 📍 kayıtlı</span></div>
+        </div>
+      </div>
+
+      <div class="sofor-kart">
+        <div class="islem"><span>✎</span><span>✕</span></div>
+        <div class="kart-ust"><div class="avatar">AK</div>
+          <div><div class="sofor-ad">Ali Kaya</div><div class="durum aktif"><span class="nokta"></span>Aktif</div></div></div>
+        <div class="kart-alt">
+          <div class="kart-satir"><span class="e">Araç</span><span class="arac-yok">araç atanmadı</span></div>
+          <div class="kart-satir"><span class="e">Telefon</span>0535 777 88 99</div>
+          <div class="kart-satir"><span class="e">Ev</span>Üsküdar, İstanbul <span class="konum-yok">· konum yok</span></div>
+        </div>
+      </div>
+
+      <div class="sofor-kart pasif">
+        <div class="islem"><span>✎</span><span>✕</span></div>
+        <div class="kart-ust"><div class="avatar pasif">VÖ</div>
+          <div><div class="sofor-ad">Veli Öztürk</div><div class="durum pasif"><span class="nokta"></span>Pasif</div></div></div>
+        <div class="kart-alt">
+          <div class="kart-satir"><span class="e">Telefon</span>0536 222 33 44</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -91,6 +91,40 @@
   .kart-islem button:hover { color: #c31f3f; }
 
   .bos-mesaj { color: #9ca3af; font-size: 12px; text-align: center; padding: 30px 0; }
+
+  /* Acilir-kapanir bolumler */
+  .bolum { border-bottom: 1px solid #ececee; }
+  .bolum:last-child { border-bottom: none; }
+  .bolum-baslik {
+    display: flex; align-items: center; gap: 10px; padding: 14px 2px; cursor: pointer; user-select: none;
+  }
+  .bolum-baslik:hover h2 { color: #c31f3f; }
+  .bolum-baslik .ok { color: #c31f3f; font-size: 11px; width: 12px; transition: transform 0.15s; }
+  .bolum-baslik .sayac { color: #9ca3af; font-size: 12px; margin-left: auto; }
+  .bolum.kapali .ok { transform: rotate(-90deg); }
+  .bolum.kapali .bolum-govde { display: none; }
+  .bolum-govde { padding-bottom: 16px; }
+
+  /* Arac-sofor atama satirlari */
+  .atama-liste { display: flex; flex-direction: column; gap: 8px; }
+  .atama-satir {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    border: 1px solid #ececee; border-radius: 6px;
+  }
+  .atama-satir .arac-bilgi { min-width: 0; flex-shrink: 0; width: 150px; }
+  .atama-satir .arac-adi { font-weight: 600; font-size: 13px; }
+  .atama-satir .arac-plaka { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+  .atama-satir select {
+    flex: 1; max-width: 260px; padding: 8px 30px 8px 12px; border: 1px solid #d4d4d8; border-radius: 6px;
+    font-size: 13px; font-family: inherit; color: #1a1a1a; background: #fff; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239ca3af'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+  .atama-satir select:focus { outline: none; border-color: #c31f3f; }
+  .atama-satir select.dolu { border-color: #c31f3f; color: #c31f3f; font-weight: 600; }
+  .atama-durum { margin-left: auto; font-size: 16px; color: #16a34a; opacity: 0; transition: opacity 0.2s; }
+  .atama-durum.gorunur { opacity: 1; }
 </style>
 </head>
 <body>
@@ -131,12 +165,30 @@
   </div>
 
   <div class="kolon sag">
-    <div class="sofor-baslik">
-      <h2 style="margin:0;">Şoförler</h2>
-      <span class="sayac" id="sofor-sayac">0 şoför</span>
+    <div class="bolum" id="bolum-soforler">
+      <div class="bolum-baslik" onclick="bolumAcKapa('soforler')">
+        <span class="ok" id="ok-soforler">▾</span>
+        <h2 style="margin:0;">Şoförler</h2>
+        <span class="sayac" id="sofor-sayac">0 şoför</span>
+      </div>
+      <div class="bolum-govde" id="govde-soforler">
+        <div class="sofor-liste" id="sofor-liste">
+          <div class="bos-mesaj">Henüz şoför eklenmedi</div>
+        </div>
+      </div>
     </div>
-    <div class="sofor-liste" id="sofor-liste">
-      <div class="bos-mesaj">Henüz şoför eklenmedi</div>
+
+    <div class="bolum" id="bolum-atama">
+      <div class="bolum-baslik" onclick="bolumAcKapa('atama')">
+        <span class="ok" id="ok-atama">▾</span>
+        <h2 style="margin:0;">Araç–Şoför Atama</h2>
+        <span class="sayac" id="atama-sayac">0 araç</span>
+      </div>
+      <div class="bolum-govde" id="govde-atama">
+        <div class="atama-liste" id="atama-liste">
+          <div class="bos-mesaj">Araçlar yükleniyor...</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -199,7 +251,7 @@ function soforKaydet() {
   .then(function(v) {
     if (v.hata) { alert(v.hata); return; }
     formTemizle();
-    soforleriYukle();
+    soforleriYukle().then(atamalariYukle);
   })
   .catch(function() { alert('Kayıt hatası'); });
 }
@@ -239,7 +291,7 @@ function soforSil(id) {
   if (!confirm('"' + s.ad + '" silinsin mi?')) return;
   fetch('/api/soforler/' + id, { method: 'DELETE' })
     .then(function(r) { return r.json(); })
-    .then(function() { if (duzenlenen === id) formTemizle(); soforleriYukle(); })
+    .then(function() { if (duzenlenen === id) formTemizle(); soforleriYukle().then(atamalariYukle); })
     .catch(function() { alert('Silme hatası'); });
 }
 
@@ -264,10 +316,11 @@ function kartOlustur(s) {
 }
 
 function soforleriYukle() {
-  fetch('/api/soforler')
+  return fetch('/api/soforler')
     .then(function(r) { return r.json(); })
     .then(function(liste) {
       soforler = {};
+      aktifSoforler = liste.filter(function(s) { return s.aktif; });
       var kap = document.getElementById('sofor-liste');
       kap.innerHTML = '';
       if (!liste.length) {
@@ -275,13 +328,94 @@ function soforleriYukle() {
       } else {
         liste.forEach(function(s) { soforler[s.id] = s; kap.appendChild(kartOlustur(s)); });
       }
-      var aktif = liste.filter(function(s) { return s.aktif; }).length;
       document.getElementById('sofor-sayac').textContent =
-        liste.length + ' şoför' + (liste.length ? ' · ' + aktif + ' aktif' : '');
+        liste.length + ' şoför' + (liste.length ? ' · ' + aktifSoforler.length + ' aktif' : '');
     });
 }
 
-soforleriYukle();
+// --- Acilir-kapanir bolumler ---
+function bolumAcKapa(ad) {
+  document.getElementById('bolum-' + ad).classList.toggle('kapali');
+}
+
+// --- Arac-Sofor atama ---
+var aktifSoforler = [];
+var araclar = [];
+
+function atamaSecenekleri(arac) {
+  // baska araca atanmis sofor id'leri (bu araca atanan haric)
+  var baskaAtanmis = {};
+  araclar.forEach(function(x) {
+    if (x.id !== arac.id && x.sofor_id) baskaAtanmis[x.sofor_id] = true;
+  });
+  var html = '<select class="' + (arac.sofor_id ? 'dolu' : '') + '" '
+           + 'onchange="aracSoforAta(' + arac.id + ', this)">';
+  html += '<option value="">— şoför seç —</option>';
+  aktifSoforler.forEach(function(s) {
+    if (baskaAtanmis[s.id]) return;   // baska araca atanmis, bu menude gizle
+    html += '<option value="' + s.id + '"' + (s.id === arac.sofor_id ? ' selected' : '') + '>'
+          + kacar(s.ad) + '</option>';
+  });
+  // bu aracin atanmis soforu pasiflesmis/silinmisse yine gorunsun
+  if (arac.sofor_id && !aktifSoforler.some(function(s) { return s.id === arac.sofor_id; })) {
+    html += '<option value="' + arac.sofor_id + '" selected>' + kacar(arac.sofor_ad) + ' (pasif)</option>';
+  }
+  html += '</select>';
+  return html;
+}
+
+// yerel araclar durumundan atama listesini cizer (fetch yok)
+function atamaListesiCiz() {
+  var kap = document.getElementById('atama-liste');
+  document.getElementById('atama-sayac').textContent = araclar.length + ' araç';
+  if (!araclar.length) { kap.innerHTML = '<div class="bos-mesaj">Aktif araç yok</div>'; return; }
+  if (!aktifSoforler.length) { kap.innerHTML = '<div class="bos-mesaj">Önce yukarıdan şoför ekleyin</div>'; return; }
+  kap.innerHTML = '';
+  araclar.forEach(function(a) {
+    var satir = document.createElement('div');
+    satir.className = 'atama-satir';
+    satir.innerHTML = ''
+      + '<div class="arac-bilgi">'
+      + '  <div class="arac-adi">' + kacar(a.adi) + '</div>'
+      + (a.plaka ? '  <div class="arac-plaka">' + kacar(a.plaka) + '</div>' : '')
+      + '</div>'
+      + atamaSecenekleri(a)
+      + '<span class="atama-durum" id="atama-durum-' + a.id + '">✓</span>';
+    kap.appendChild(satir);
+  });
+}
+
+function atamalariYukle() {
+  return fetch('/api/araclar')
+    .then(function(r) { return r.json(); })
+    .then(function(liste) { araclar = liste; atamaListesiCiz(); });
+}
+
+function aracSoforAta(aracId, secim) {
+  var sid = secim.value ? parseInt(secim.value) : null;
+  fetch('/api/araclar/' + aracId + '/sofor', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sofor_id: sid })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(v) {
+    if (v.hata) { alert(v.hata); return; }
+    var a = araclar.filter(function(x) { return x.id === aracId; })[0];
+    if (a) { a.sofor_id = sid; a.sofor_ad = v.sofor_ad || ''; }
+    // tum dropdown'lari yenile: atanan sofor digerlerinden dusmeli,
+    // bosalan sofor digerlerinde yeniden gorunmeli
+    atamaListesiCiz();
+    var durum = document.getElementById('atama-durum-' + aracId);
+    if (durum) {
+      durum.classList.add('gorunur');
+      setTimeout(function() { durum.classList.remove('gorunur'); }, 1200);
+    }
+  })
+  .catch(function() { alert('Şoför atama hatası'); });
+}
+
+// ilk yukleme: once soforler (atama menusu onlara bagli), sonra atama listesi
+soforleriYukle().then(atamalariYukle);
 </script>
 </body>
 </html>
