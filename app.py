@@ -37,6 +37,11 @@ def filo():
     return send_file("templates/filo.html")
 
 
+@app.route("/sofor")
+def sofor():
+    return send_file("templates/sofor.html")
+
+
 @app.route("/geocode", methods=["POST"])
 def geocode():
     adres = request.json.get("adres", "")
@@ -619,6 +624,78 @@ def teslimat_adres(tes_id):
         "lat": float(row.lat) if row.lat else None, "lon": float(row.lon) if row.lon else None,
         "puan": row.puan,
     })
+
+
+@app.route("/api/soforler", methods=["GET"])
+def sofor_listele():
+    session = Session()
+    rows = session.execute(text(
+        "SELECT * FROM soforler ORDER BY aktif DESC, ad"
+    )).fetchall()
+    session.close()
+    return jsonify([{
+        "id": r.id, "ad": r.ad, "telefon": r.telefon or "",
+        "ev_adresi": r.ev_adresi or "",
+        "ev_lat": float(r.ev_lat) if r.ev_lat is not None else None,
+        "ev_lon": float(r.ev_lon) if r.ev_lon is not None else None,
+        "aktif": r.aktif, "notlar": r.notlar or "",
+    } for r in rows])
+
+
+@app.route("/api/soforler", methods=["POST"])
+def sofor_ekle():
+    v = request.json or {}
+    ad = (v.get("ad") or "").strip()
+    if not ad:
+        return jsonify({"hata": "Şoför adı zorunlu"}), 400
+    session = Session()
+    row = session.execute(text("""
+        INSERT INTO soforler (ad, telefon, ev_adresi, ev_lat, ev_lon, aktif, notlar)
+        VALUES (:ad, :tel, :adr, :lat, :lon, :aktif, :not)
+        RETURNING id
+    """), {
+        "ad": ad, "tel": (v.get("telefon") or "").strip() or None,
+        "adr": (v.get("ev_adresi") or "").strip() or None,
+        "lat": v.get("ev_lat"), "lon": v.get("ev_lon"),
+        "aktif": v.get("aktif", True), "not": (v.get("notlar") or "").strip() or None,
+    })
+    yeni_id = row.scalar()
+    session.commit()
+    session.close()
+    return jsonify({"id": yeni_id, "ok": True})
+
+
+@app.route("/api/soforler/<int:sofor_id>", methods=["PUT"])
+def sofor_guncelle(sofor_id):
+    v = request.json or {}
+    # sadece gonderilen alanlari guncelle
+    alanlar, param = [], {"id": sofor_id}
+    esleme = {"ad": "ad", "telefon": "telefon", "ev_adresi": "ev_adresi",
+              "ev_lat": "ev_lat", "ev_lon": "ev_lon", "aktif": "aktif", "notlar": "notlar"}
+    for anahtar, kolon in esleme.items():
+        if anahtar in v:
+            alanlar.append(f"{kolon} = :{kolon}")
+            deger = v[anahtar]
+            if isinstance(deger, str):
+                deger = deger.strip() or None
+            param[kolon] = deger
+    if not alanlar:
+        return jsonify({"hata": "Güncellenecek alan yok"}), 400
+    session = Session()
+    session.execute(text(
+        f"UPDATE soforler SET {', '.join(alanlar)} WHERE id = :id"), param)
+    session.commit()
+    session.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/soforler/<int:sofor_id>", methods=["DELETE"])
+def sofor_sil(sofor_id):
+    session = Session()
+    session.execute(text("DELETE FROM soforler WHERE id = :id"), {"id": sofor_id})
+    session.commit()
+    session.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/araclar/<int:arac_id>/rota-qr", methods=["GET"])
