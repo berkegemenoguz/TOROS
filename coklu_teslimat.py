@@ -320,6 +320,7 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
     toplam_mesafe = 0
     toplam_sure = 0
     toplam_trafik = 0
+    toplam_bekleme = 0
     varis_zamanlari = []
     suan = kalkis_zamani
 
@@ -336,8 +337,8 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
         if teslimat_idx is not None and teslimat_idx in pencereler:
             bas, son = pencereler[teslimat_idx]
             if suan < bas:
-                bekleme = (bas - suan).total_seconds()
-                toplam_trafik += int(bekleme)
+                # Kapida bosta beklenen sure; yol suresine karistirilmaz.
+                toplam_bekleme += int((bas - suan).total_seconds())
                 suan = bas
 
         varis_zamanlari.append(suan.strftime("%H:%M"))
@@ -368,6 +369,9 @@ def teslimat_optimize(depo, teslimatlar, kalkis_zamani, pencereler=None, depoya_
         "toplam_sure": f"{toplam_sure // 60} dk",
         "toplam_trafik_sn": toplam_trafik,
         "toplam_trafik": f"{toplam_trafik // 60} dk",
+        "toplam_bekleme_sn": toplam_bekleme,
+        "toplam_bekleme": f"{toplam_bekleme // 60} dk",
+        "toplam_servis_sn": len(teslimatlar) * TESLIMAT_SURESI,
         "polyline": tum_polylines,
         "bacak_polylines": [[[p[0], p[1]] for p in bp] for bp in bacak_polylines],
         "teslimat_sayisi": len(teslimatlar),

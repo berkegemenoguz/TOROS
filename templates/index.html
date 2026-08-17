@@ -99,6 +99,8 @@
   }
   .sonuc-kutu .deger { font-size: 16px; font-weight: bold; color: #c31f3f; }
   .sonuc-kutu .etiket { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sure-kirilim { font-size: 11px; color: #6b7280; margin-bottom: 12px; text-align: center; }
+  .sure-kirilim .bekleme-uyari { color: #c31f3f; font-weight: bold; }
   .rota-listesi { font-size: 12px; line-height: 22px; }
   .rota-listesi .durak { padding: 3px 0; border-bottom: 1px solid #f0f0f1; }
   .rota-listesi .saat { color: #c31f3f; font-weight: bold; }
@@ -196,6 +198,7 @@
         <div class="etiket">Teslimat</div>
       </div>
     </div>
+    <div class="sure-kirilim" id="s-kirilim"></div>
     <div class="rota-listesi" id="rota-listesi"></div>
     <div class="maps-butonlar" id="maps-butonlar" style="display:none;gap:6px;margin-top:10px;">
       <button class="btn-maps aktif" style="display:block;flex:1;" onclick="googleMapsAc()">Google Maps'te Aç</button>
@@ -401,10 +404,26 @@ function haritaCiz(veri, sonuc) {
   map.fitBounds(bounds, {padding: [40, 40]});
 }
 
+function sureBicimle(dk) {
+  if (dk < 60) return dk + ' dk';
+  var s = Math.floor(dk / 60), k = dk % 60;
+  return k ? s + ' sa ' + k + ' dk' : s + ' sa';
+}
+
 function sonucGoster(sonuc) {
   document.getElementById('s-mesafe').textContent = sonuc.toplam_mesafe;
-  var teslimatDkToplam = sonuc.isimler.length * 15;
-  document.getElementById('s-sure').textContent = sonuc.toplam_trafik + ' + ' + teslimatDkToplam + 'dk';
+
+  // Yol / servis / bekleme ayri ayri tutulur; ozette toplami, altinda kirilimi gosteriyoruz.
+  var yolDk = Math.round(parseInt(sonuc.toplam_trafik, 10) || 0);
+  var servisDk = Math.round((sonuc.toplam_servis_sn || 0) / 60);
+  var beklemeDk = Math.round((sonuc.toplam_bekleme_sn || 0) / 60);
+  document.getElementById('s-sure').textContent = sureBicimle(yolDk + servisDk + beklemeDk);
+
+  var kirilim = 'yol ' + sureBicimle(yolDk) + ' · servis ' + sureBicimle(servisDk);
+  if (beklemeDk > 0) {
+    kirilim += ' · <span class="bekleme-uyari">randevu beklemesi ' + sureBicimle(beklemeDk) + '</span>';
+  }
+  document.getElementById('s-kirilim').innerHTML = kirilim;
   document.getElementById('s-teslimat').textContent = sonuc.isimler.length;
 
   var depoyaDon = document.getElementById('depoya-don').checked;
@@ -556,9 +575,14 @@ function aracSec(aracId) {
       markerlar.push(marker);
     }
 
-    if (t.randevuBas && t.randevuSon && t.termin) {
-      kart.querySelector('.t-pencere-bas').value = t.termin + 'T' + t.randevuBas;
-      kart.querySelector('.t-pencere-son').value = t.termin + 'T' + t.randevuSon;
+    // Randevu penceresi rotanin gununde gecerlidir; termin bir son tarihtir,
+    // pencereye tarih olarak verilirse arac haftalarca "bekliyor" sayilir.
+    if (t.randevuBas && t.randevuSon) {
+      var rotaGunu = (document.getElementById('kalkis-zamani').value || '').slice(0, 10);
+      if (rotaGunu) {
+        kart.querySelector('.t-pencere-bas').value = rotaGunu + 'T' + t.randevuBas;
+        kart.querySelector('.t-pencere-son').value = rotaGunu + 'T' + t.randevuSon;
+      }
     }
   });
 
