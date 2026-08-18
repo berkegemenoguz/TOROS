@@ -608,16 +608,21 @@ def otomatik_dagit():
     depo_lon = float(depo.lon) if depo else 28.872
     depo_pt = (depo_lat, depo_lon)
 
-    # 2) Bolge -> o bolgeye bakan aktif araclar
+    # 2) Bolge -> o bolgeye bakan aktif araclar (soforun ev konumuyla birlikte)
     arac_rows = session.execute(text(
-        "SELECT id, adi, max_agirlik, max_hacim, bolge FROM araclar "
-        "WHERE aktif = TRUE AND bolge IS NOT NULL"
+        "SELECT a.id, a.adi, a.max_agirlik, a.max_hacim, a.bolge, "
+        "       s.ev_lat, s.ev_lon "
+        "FROM araclar a LEFT JOIN soforler s ON s.id = a.sofor_id "
+        "WHERE a.aktif = TRUE AND a.bolge IS NOT NULL"
     )).fetchall()
     bolge_araclar = {}
     for a in arac_rows:
+        # Acik rota icin soforun ev konumu; yoksa rota depoya doner (kapali)
+        ev_pt = (float(a.ev_lat), float(a.ev_lon)) if a.ev_lat is not None \
+            and a.ev_lon is not None else None
         bolge_araclar.setdefault(a.bolge, []).append({
             "id": a.id, "adi": a.adi,
-            "mag": float(a.max_agirlik), "mhc": float(a.max_hacim)})
+            "mag": float(a.max_agirlik), "mhc": float(a.max_hacim), "ev": ev_pt})
 
     # Yolda (mesgul) araclar: halihazirda atanmis teslimati olanlar tekrar
     # yuklenemez. Bir bolgenin araci mesgulse o bolge bugun cikamaz.
@@ -653,7 +658,10 @@ def otomatik_dagit():
             "olusturma": t.olusturma_zamani or datetime.now(),
         })
 
-    # --- Geometri ve rota yardimcilari (kapali rota: depo -> duraklar -> depo) --
+    # --- Geometri ve rota yardimcilari -------------------------------------
+    # Esnaf acik rota: depo -> duraklar -> soforun evi (ev_pt). Ev yoksa rota
+    # depoya doner (kapali). KRITIK: eve donus bacagi YOL'a (hedef, 2-opt) girer
+    # ama MESAI'ye (vardiya kisiti) girmez - ikisi ayri hesaplanir.
     def kus_ucusu(a, b):
         yer_yaricapi = 6371.0
         p1, p2 = math.radians(a[0]), math.radians(b[0])
@@ -664,17 +672,31 @@ def otomatik_dagit():
     def mesafe(a_yaka, a_pt, b_yaka, b_pt):
         return kus_ucusu(a_pt, b_pt) + (KOPRU_KM if a_yaka != b_yaka else 0.0)
 
-    def rota_km(seq):
+    def kapanis_km(seq, ev_pt):
+        # rotanin son duragindan kapanis: eve (ev soforun bolgesinde, ayni yaka
+        # varsayilir -> kopru cezasi yok) ya da ev yoksa depoya
+        son = seq[-1]
+        if ev_pt is not None:
+            return kus_ucusu(son["pt"], ev_pt)
+        return mesafe(depo_yaka, depo_pt, son["yaka"], son["pt"])
+
+    def yol_km(seq, ev_pt=None):
+        # Toplam yol (hedef): depo -> duraklar -> ev/depo. Kapanis DAHIL.
         if not seq:
             return 0.0
-        km = (mesafe(depo_yaka, depo_pt, seq[0]["yaka"], seq[0]["pt"])
-              + mesafe(depo_yaka, depo_pt, seq[-1]["yaka"], seq[-1]["pt"]))
+        km = mesafe(depo_yaka, depo_pt, seq[0]["yaka"], seq[0]["pt"])
         for a, b in zip(seq, seq[1:]):
             km += mesafe(a["yaka"], a["pt"], b["yaka"], b["pt"])
-        return km
+        return km + kapanis_km(seq, ev_pt)
 
-    def rota_dk(seq):
-        return rota_km(seq) / HIZ_KMH * 60.0 + sum(t["servis"] for t in seq)
+    def mesai_dk(seq):
+        # Vardiya (kisit): depo -> son teslimat + servisler. Kapanis bacagi HARIC.
+        if not seq:
+            return 0.0
+        km = mesafe(depo_yaka, depo_pt, seq[0]["yaka"], seq[0]["pt"])
+        for a, b in zip(seq, seq[1:]):
+            km += mesafe(a["yaka"], a["pt"], b["yaka"], b["pt"])
+        return km / HIZ_KMH * 60.0 + sum(t["servis"] for t in seq)
 
     def en_yakin_komsu(secili):
         kalan, sirali = list(secili), []
@@ -686,7 +708,7 @@ def otomatik_dagit():
             cur_yaka, cur_pt = nx["yaka"], nx["pt"]
         return sirali
 
-    def iki_opt(seq):
+    def iki_opt(seq, ev_pt=None):
         if len(seq) < 4:
             return seq
         gelisti = True
@@ -695,7 +717,7 @@ def otomatik_dagit():
             for a in range(len(seq) - 1):
                 for b in range(a + 2, len(seq)):
                     aday = seq[:a + 1] + seq[a + 1:b + 1][::-1] + seq[b + 1:]
-                    if rota_km(aday) < rota_km(seq) - 1e-9:
+                    if yol_km(aday, ev_pt) < yol_km(seq, ev_pt) - 1e-9:
                         seq, gelisti = aday, True
         return seq
 
@@ -735,17 +757,20 @@ def otomatik_dagit():
             if not secili:
                 continue
 
-            sirali = iki_opt(en_yakin_komsu(secili))
+            ev_pt = arac["ev"]
+            sirali = iki_opt(en_yakin_komsu(secili), ev_pt)
             ag = sum(t["ag"] for t in sirali)
             hc = sum(t["hc"] for t in sirali)
-            dk = rota_dk(sirali)
+            dk = mesai_dk(sirali)
             atamalar[arac["id"]] = [t["id"] for t in sirali]
             vardiya_yuzde = round(100 * dk / VARDIYA_DK)
             detaylar.append({
                 "arac_id": arac["id"], "arac_adi": arac["adi"], "bolge": bolge,
                 "teslimat_sayisi": len(sirali),
-                "km": round(rota_km(sirali), 1),
+                "km": round(yol_km(sirali, ev_pt), 1),
                 "sure_dk": round(dk),
+                "acik_rota": ev_pt is not None,
+                "ev_km": round(kapanis_km(sirali, ev_pt), 1) if ev_pt is not None else None,
                 "agirlik": round(ag, 1), "max_agirlik": arac["mag"],
                 "hacim": round(hc, 2), "max_hacim": arac["mhc"],
                 "doluluk_agirlik": round(100 * ag / arac["mag"], 1),
