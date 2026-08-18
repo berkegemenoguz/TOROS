@@ -84,7 +84,8 @@ def arac_listele():
         "plaka": r.plaka,
         "rota_km": float(r.son_rota_km) if r.son_rota_km is not None else None,
         "rota_dk": r.son_rota_dk,
-        "sofor_id": r.sofor_id, "sofor_ad": r.sofor_ad or ""
+        "sofor_id": r.sofor_id, "sofor_ad": r.sofor_ad or "",
+        "bolge": r.bolge or ""
     } for r in rows])
 
 
@@ -102,14 +103,27 @@ def arac_sofor_ata(arac_id):
     return jsonify({"ok": True, "sofor_ad": ad or ""})
 
 
+@app.route("/api/araclar/<int:arac_id>/bolge", methods=["PUT"])
+def arac_bolge_ata(arac_id):
+    # bolge bos/null gonderilirse atama kaldirilir
+    bolge = ((request.json or {}).get("bolge") or "").strip() or None
+    session = Session()
+    session.execute(text("UPDATE araclar SET bolge = :b WHERE id = :aid"),
+                    {"b": bolge, "aid": arac_id})
+    session.commit()
+    session.close()
+    return jsonify({"ok": True, "bolge": bolge or ""})
+
+
 @app.route("/api/araclar", methods=["POST"])
 def arac_olustur():
     v = request.json
     session = Session()
     result = session.execute(text(
-        "INSERT INTO araclar (adi, tip, max_agirlik, max_hacim, plaka) "
-        "VALUES (:adi, :tip, :ag, :hc, :plaka) RETURNING id"
-    ), {"adi": v["adi"], "tip": v["tip"], "ag": v["max_agirlik"], "hc": v["max_hacim"], "plaka": v.get("plaka", "")})
+        "INSERT INTO araclar (adi, tip, max_agirlik, max_hacim, plaka, bolge) "
+        "VALUES (:adi, :tip, :ag, :hc, :plaka, :bolge) RETURNING id"
+    ), {"adi": v["adi"], "tip": v["tip"], "ag": v["max_agirlik"], "hc": v["max_hacim"],
+        "plaka": v.get("plaka", ""), "bolge": (v.get("bolge") or "").strip() or None})
     session.commit()
     yeni_id = result.fetchone().id
     session.close()
@@ -134,9 +148,10 @@ def arac_bulk():
             hatalar.append({"index": i, "adi": v.get("adi", ""), "hata": "Gecersiz tip"})
             continue
         result = session.execute(text(
-            "INSERT INTO araclar (adi, tip, max_agirlik, max_hacim, plaka) "
-            "VALUES (:adi, :tip, :ag, :hc, :plaka) RETURNING id"
-        ), {"adi": v.get("adi", "Arac"), "tip": tip, "ag": v.get("max_agirlik", 0), "hc": v.get("max_hacim", 0), "plaka": plaka})
+            "INSERT INTO araclar (adi, tip, max_agirlik, max_hacim, plaka, bolge) "
+            "VALUES (:adi, :tip, :ag, :hc, :plaka, :bolge) RETURNING id"
+        ), {"adi": v.get("adi", "Arac"), "tip": tip, "ag": v.get("max_agirlik", 0),
+            "hc": v.get("max_hacim", 0), "plaka": plaka, "bolge": (v.get("bolge") or "").strip() or None})
         sonuclar.append({"index": i, "id": result.fetchone().id})
     session.commit()
     session.close()
