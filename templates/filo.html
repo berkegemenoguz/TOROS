@@ -72,9 +72,36 @@
 
   .btn-dagit {
     background: #fff; color: #374151; border: 1px solid #d4d4d8;
-    padding: 5px 12px; font-size: 11px; margin-left: auto; width: auto;
+    padding: 5px 12px; font-size: 11px; width: auto;
   }
   .btn-dagit:hover { border-color: #c31f3f; color: #c31f3f; }
+  .btn-durum {
+    background: #fff; color: #374151; border: 1px solid #d4d4d8;
+    padding: 5px 12px; font-size: 11px; margin-left: auto; width: auto;
+  }
+  .btn-durum:hover { border-color: #2563eb; color: #2563eb; }
+  .btn-durum.acik { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
+
+  .bolge-durum {
+    background: #fafafa; border: 1px solid #ececee; border-radius: 6px;
+    padding: 6px; margin-bottom: 8px; max-height: 260px; overflow-y: auto;
+  }
+  .bolge-durum .bd-satir {
+    display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+    border-radius: 4px; font-size: 12px;
+  }
+  .bolge-durum .bd-satir + .bd-satir { border-top: 1px solid #f0f0f0; }
+  .bolge-durum .bd-ad { font-weight: 600; color: #1a1a1a; flex: 1; }
+  .bolge-durum .bd-metrik { color: #6b7280; font-size: 11px; white-space: nowrap; }
+  .bolge-durum .bd-badge {
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .bolge-durum .bd-hazir { background: #dcfce7; color: #15803d; }
+  .bolge-durum .bd-bekliyor { background: #f3f4f6; color: #9ca3af; }
+  .bolge-durum .bd-sebep { color: #15803d; font-size: 11px; font-style: italic; white-space: nowrap; }
+  .bolge-durum .bd-bos { color: #9ca3af; font-size: 12px; padding: 8px; text-align: center; }
+  .bolge-durum .bd-bolgesiz { color: #b45309; font-size: 11px; padding: 6px 8px; border-top: 1px solid #f0f0f0; }
 
   .ayirici { border: none; border-top: 1px solid #ececee; margin: 15px 0; }
 
@@ -155,6 +182,10 @@
   .arac-satir .satir-sofor { font-size: 10px; margin-top: 2px; }
   .arac-satir .satir-sofor .sofor-dolu { color: #c31f3f; font-weight: 600; }
   .arac-satir .satir-sofor .sofor-bos { color: #c4c4c8; font-style: italic; }
+  .arac-satir .satir-sofor .satir-bolge {
+    color: #2563eb; font-weight: 600; background: #eff6ff;
+    padding: 0 5px; border-radius: 3px; margin-left: 3px;
+  }
   .arac-satir .satir-barlar { display: flex; gap: 4px; margin-top: 5px; }
   .arac-satir .satir-barlar .kapasite-bar { flex: 1; margin-top: 0; }
 
@@ -163,6 +194,12 @@
   .sofor-ata .sofor-dolu { font-size: 13px; font-weight: 600; color: #c31f3f; }
   .sofor-atama-link { font-size: 12px; color: #9ca3af; text-decoration: none; font-style: italic; }
   .sofor-atama-link:hover { color: #c31f3f; text-decoration: underline; }
+  .bolge-ata { margin-top: 2px; }
+  .bolge-ata .bolge-sec {
+    flex: 1; padding: 4px 6px; font-size: 12px; border: 1px solid #e4e4e7;
+    border-radius: 4px; background: #fff; color: #374151; cursor: pointer;
+  }
+  .bolge-ata .bolge-sec:focus { outline: none; border-color: #2563eb; }
 
   .arac-detay {
     flex: 1; min-width: 0; padding: 0;
@@ -367,8 +404,10 @@
       <div class="havuz-baslik">
         <h2>Atanmamış Teslimatlar</h2>
         <span id="havuz-sayac">0 teslimat</span>
+        <button class="btn btn-durum" onclick="bolgeDurumToggle()">Bölge Durumu</button>
         <button class="btn btn-dagit" onclick="otomatikDagit()">Otomatik Dağıt</button>
       </div>
+      <div class="bolge-durum" id="bolge-durum" style="display:none;"></div>
       <div class="teslimat-havuz" id="havuz"
            ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="havuzaBirak(event)">
         <div class="bos-mesaj" id="havuz-bos">Henüz teslimat eklenmedi</div>
@@ -400,6 +439,7 @@ setTimeout(function() { document.getElementById('splash').classList.add('kapan')
 
 var araclar = {};
 var teslimatlar = {};
+var bolgeListesi = [];
 var suruklenen = null;
 
 var tipPreset = {
@@ -460,7 +500,10 @@ function aracSatirGuncelle(id) {
     + '<span class="satir-adet">' + a.teslimatlar.length + '</span></div>'
     + '<div class="satir-sofor">' + (a.soforAd
         ? '<span class="sofor-dolu">' + kacar(a.soforAd) + '</span>'
-        : '<span class="sofor-bos">şoför atanmadı</span>') + '</div>'
+        : '<span class="sofor-bos">şoför atanmadı</span>')
+    + (a.bolge
+        ? ' <span class="satir-bolge">' + kacar(a.bolge) + '</span>'
+        : ' <span class="sofor-bos">bölge yok</span>') + '</div>'
     + '<div class="satir-alt">' + (alt.join(' · ') || '&nbsp;') + '</div>'
     + '<div class="satir-barlar">' + bar(y.agOran) + bar(y.hcOran) + '</div>';
   satir.classList.toggle('kapasite-asimi', y.agOran > 100 || y.hcOran > 100);
@@ -482,6 +525,31 @@ function detayKapasiteCiz() {
   var a = araclar[seciliArac], y = aracYuk(seciliArac);
   kap.innerHTML = 'Ağırlık: ' + y.ag.toFixed(1) + ' / ' + a.maxAg + ' kg' + bar(y.agOran)
                 + 'Hacim: ' + y.hc.toFixed(2) + ' / ' + a.maxHc + ' m3' + bar(y.hcOran);
+}
+
+// Bolge secim menusu opsiyonlari; secili bolge isaretlenir.
+function bolgeOpsiyonlari(secili) {
+  var html = '<option value="">— bölge seçilmedi —</option>';
+  bolgeListesi.forEach(function(b) {
+    html += '<option value="' + kacar(b) + '"' + (b === secili ? ' selected' : '') + '>'
+          + kacar(b) + '</option>';
+  });
+  return html;
+}
+
+// Araca bolge atar; bos secim atamayi kaldirir.
+function bolgeAta(aracId, deger) {
+  fetch('/api/araclar/' + aracId + '/bolge', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bolge: deger })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(veri) {
+    if (araclar[aracId]) araclar[aracId].bolge = veri.bolge || '';
+    aracSatirGuncelle(aracId);
+  })
+  .catch(function() { alert('Bölge atanamadı'); });
 }
 
 // Sofor gostergesi salt-okunur; atama Sofor Yonetimi sayfasinda yapiliyor.
@@ -518,6 +586,11 @@ function aracDetayCiz() {
     + '</div>'
     + '<div class="sofor-ata">'
     + '  <label>Şoför</label>' + soforGostergesi(id)
+    + '</div>'
+    + '<div class="sofor-ata bolge-ata">'
+    + '  <label>Bölge</label>'
+    + '  <select class="bolge-sec" onchange="bolgeAta(' + id + ', this.value)">'
+    +      bolgeOpsiyonlari(a.bolge) + '</select>'
     + '</div>'
     + '<div class="arac-kapasite" id="detay-kap"></div>'
     + '<div class="arac-icerik" id="detay-icerik"></div>';
@@ -919,6 +992,52 @@ function havuzSayacGuncelle() {
 var bugun = new Date().toISOString().slice(0, 10);
 document.getElementById('tes-termin').value = bugun;
 
+function bolgeDurumToggle() {
+  var panel = document.getElementById('bolge-durum');
+  var btn = document.querySelector('.btn-durum');
+  if (panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    btn.classList.remove('acik');
+    return;
+  }
+  panel.style.display = 'block';
+  btn.classList.add('acik');
+  panel.innerHTML = '<div class="bd-bos">Yükleniyor…</div>';
+  fetch('/api/havuz')
+    .then(function(r) { return r.json(); })
+    .then(function(veri) { bolgeDurumCiz(veri); })
+    .catch(function() { panel.innerHTML = '<div class="bd-bos">Durum alınamadı</div>'; });
+}
+
+function bolgeDurumCiz(veri) {
+  var panel = document.getElementById('bolge-durum');
+  var b = veri.bolgeler || [];
+  if (!b.length) {
+    panel.innerHTML = '<div class="bd-bos">Havuzda bekleyen teslimat yok</div>';
+    return;
+  }
+  var html = '';
+  b.forEach(function(r) {
+    var metrik = r.teslimat_sayisi + ' yük';
+    if (r.doluluk != null) metrik += ' · %' + r.doluluk + ' dolu';
+    else metrik += ' · araç yok';
+    metrik += ' · ' + r.en_eski_gun + ' gün';
+    if (r.termin_durumu !== 'yok') metrik += ' · termin ' + r.termin_durumu;
+    html += '<div class="bd-satir">'
+      + '<span class="bd-ad">' + kacar(r.bolge) + '</span>'
+      + '<span class="bd-metrik">' + metrik + '</span>'
+      + (r.hazir
+          ? '<span class="bd-sebep">' + kacar(r.sebep || '') + '</span><span class="bd-badge bd-hazir">hazır</span>'
+          : '<span class="bd-badge bd-bekliyor">bekliyor</span>')
+      + '</div>';
+  });
+  if (veri.bolgesiz && veri.bolgesiz.teslimat_sayisi) {
+    html += '<div class="bd-bolgesiz">⚠ ' + veri.bolgesiz.teslimat_sayisi
+          + ' teslimat bölgesiz (ilçesi bir bölgeye eşlenmiyor)</div>';
+  }
+  panel.innerHTML = html;
+}
+
 function otomatikDagit() {
   if (!confirm('Atanmamış teslimatlar araçlara otomatik dağıtılacak. Devam edilsin mi?')) return;
   fetch('/api/dagit', {
@@ -931,13 +1050,16 @@ function otomatikDagit() {
     filoyuYukle();
     var o = veri.ozet;
     var satirlar = [
-      o.atanan + ' teslimat, ' + o.kullanilan_arac + '/' + o.toplam_arac + ' araca dağıtıldı',
-      '',
-      'Toplam yol : ' + o.toplam_km + ' km',
-      'Doluluk    : %' + o.doluluk_hacim + ' hacim / %' + o.doluluk_agirlik + ' ağırlık',
-      'Vardiya    : %' + o.vardiya_yuzde
+      o.kullanilan_arac + ' araç yola çıktı, ' + o.atanan + ' teslimat atandı',
+      'Hazır bölge: ' + o.hazir_bolge + ' · Bekleyen bölge: ' + o.bekleyen_bolge,
+      ''
     ];
-    if (o.acikta > 0) satirlar.push('Açıkta     : ' + o.acikta + ' teslimat');
+    if (o.kullanilan_arac > 0) {
+      satirlar.push('Toplam yol : ' + o.toplam_km + ' km');
+      satirlar.push('Doluluk    : %' + o.doluluk_hacim + ' hacim / %' + o.doluluk_agirlik + ' ağırlık');
+      satirlar.push('Vardiya    : %' + o.vardiya_yuzde);
+    }
+    if (o.acikta > 0) satirlar.push('Araca sığmayan: ' + o.acikta + ' teslimat (havuzda bekliyor)');
     if (veri.uyarilar && veri.uyarilar.length) {
       satirlar.push('');
       for (var i = 0; i < veri.uyarilar.length; i++) satirlar.push('• ' + veri.uyarilar[i]);
@@ -950,10 +1072,12 @@ function otomatikDagit() {
 function filoyuYukle() {
   Promise.all([
     fetch('/api/araclar').then(function(r) { return r.json(); }),
-    fetch('/api/teslimatlar').then(function(r) { return r.json(); })
+    fetch('/api/teslimatlar').then(function(r) { return r.json(); }),
+    fetch('/api/bolgeler').then(function(r) { return r.json(); })
   ]).then(function(sonuclar) {
     var aracListesi = sonuclar[0];
     var teslimatListesi = sonuclar[1];
+    bolgeListesi = sonuclar[2] || [];
 
     araclar = {};
     teslimatlar = {};
@@ -977,7 +1101,7 @@ function filoyuYukle() {
       araclar[a.id] = {
         adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim,
         plaka: a.plaka, rotaKm: a.rota_km, rotaDk: a.rota_dk, teslimatlar: teslimatlari,
-        soforId: a.sofor_id, soforAd: a.sofor_ad
+        soforId: a.sofor_id, soforAd: a.sofor_ad, bolge: a.bolge || ''
       };
       aracSatirOlustur(a.id);
     });
