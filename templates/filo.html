@@ -594,7 +594,7 @@ function aracSayacGuncelle() {
   var btn = document.querySelector('.btn-yazdir-tum');
   if (btn) {
     btn.disabled = rotali === 0;
-    btn.title = rotali === 0 ? 'Önce Otomatik Dağıt ile rota oluşturun'
+    btn.title = rotali === 0 ? 'Önce Haftalık Plan\'da günü Rotala ile rota oluşturun'
                              : 'Rotalı ' + rotali + ' araç için ayrı sayfa';
   }
 }
@@ -1007,37 +1007,6 @@ function bolgeDurumCiz(veri) {
   panel.innerHTML = html;
 }
 
-function otomatikDagit() {
-  if (!confirm('Atanmamış teslimatlar araçlara otomatik dağıtılacak. Devam edilsin mi?')) return;
-  fetch('/api/dagit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(veri) {
-    if (veri.hata) { alert(veri.hata); return; }
-    filoyuYukle();
-    var o = veri.ozet;
-    var satirlar = [
-      o.kullanilan_arac + ' araç yola çıktı, ' + o.atanan + ' teslimat atandı',
-      'Hazır bölge: ' + o.hazir_bolge + ' · Bekleyen bölge: ' + o.bekleyen_bolge,
-      ''
-    ];
-    if (o.kullanilan_arac > 0) {
-      satirlar.push('Toplam yol : ' + o.toplam_km + ' km');
-      satirlar.push('Doluluk    : %' + o.doluluk_hacim + ' hacim / %' + o.doluluk_agirlik + ' ağırlık');
-      satirlar.push('Vardiya    : %' + o.vardiya_yuzde);
-    }
-    if (o.acikta > 0) satirlar.push('Araca sığmayan: ' + o.acikta + ' teslimat (havuzda bekliyor)');
-    if (veri.uyarilar && veri.uyarilar.length) {
-      satirlar.push('');
-      for (var i = 0; i < veri.uyarilar.length; i++) satirlar.push('• ' + veri.uyarilar[i]);
-    }
-    alert(satirlar.join('\n'));
-  })
-  .catch(function() { alert('Dağıtım hatası oluştu'); });
-}
-
 function filoyuYukle() {
   Promise.all([
     fetch('/api/araclar').then(function(r) { return r.json(); }),
@@ -1222,7 +1191,7 @@ function yazdirmaCalistir(aracIdler) {
 
 function aracYazdir(id) {
   if (!araclar[id] || araclar[id].rotaKm == null) {
-    alert('Önce Otomatik Dağıt ile rota oluşturun.'); return;
+    alert('Önce Haftalık Plan\'da günü Rotala ile rota oluşturun.'); return;
   }
   yazdirmaCalistir([id]);
 }
@@ -1247,7 +1216,7 @@ function tumunuYazdir() {
   var rotali = Object.keys(araclar)
     .filter(function(k) { return araclar[k].rotaKm != null && araclar[k].teslimatlar.length; })
     .map(function(k) { return parseInt(k); });
-  if (!rotali.length) { alert('Rota oluşturulmuş araç yok. Önce Otomatik Dağıt çalıştırın.'); return; }
+  if (!rotali.length) { alert('Rota oluşturulmuş araç yok. Önce Haftalık Plan\'da günü Rotala.'); return; }
   yazdirmaCalistir(rotali);
 }
 
