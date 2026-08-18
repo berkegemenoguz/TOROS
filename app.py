@@ -16,6 +16,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
 
 app = Flask(__name__)
 
@@ -67,6 +68,27 @@ def geocode():
         "lon": loc["lng"],
         "adres": sonuc["formatted_address"],
     })
+
+
+@app.route("/api/yol", methods=["POST"])
+def yol_bacak():
+    """Iki nokta arasi yol (road-following) polyline'ini dondurur. TEK Directions
+    cagrisi - UCRETLI. Harita sayfasinda esnaf eve donus bacagini kus ucusu yerine
+    gercek yoldan cizmek icin kullanilir. Trafik/departure_time yok (sade geometri,
+    en ucuz tarife)."""
+    v = request.json or {}
+    b, h = v.get("from"), v.get("to")
+    if not b or not h:
+        return jsonify({"hata": "from ve to gerekli"}), 400
+    resp = requests.get(DIRECTIONS_URL, params={
+        "origin": f"{b[0]},{b[1]}",
+        "destination": f"{h[0]},{h[1]}",
+        "key": API_KEY,
+    })
+    veri = resp.json()
+    if veri.get("status") != "OK" or not veri.get("routes"):
+        return jsonify({"hata": "Yol bulunamadi", "durum": veri.get("status")}), 502
+    return jsonify({"polyline": veri["routes"][0]["overview_polyline"]["points"]})
 
 
 @app.route("/api/araclar", methods=["GET"])

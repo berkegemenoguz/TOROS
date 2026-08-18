@@ -260,6 +260,8 @@ var soforlar = {};             // sofor_id -> {ad, ev_lat, ev_lon}
 var aktifEv = null;            // secili aracin soforunun evi {ad, lat, lon} | null
 var evCizgi = null, evMarker = null;
 var sonVeri = null, sonSonuc = null;
+var evYolCache = {};           // "sonDurak>ev" -> yol polyline noktalari (road-following)
+var evYolBekleyen = {};        // ayni bacak icin cift istek engeli
 
 var now = new Date();
 now.setMinutes(now.getMinutes() + 30);
@@ -481,21 +483,50 @@ function rotayiCiz() {
     bounds.extend(cizgi.getBounds());
   });
 
-  // Eve donus: son duraktan soforun evine kesikli cizgi + ev isareti
+  // Eve donus: son duraktan soforun evine YOLDAN giden cizgi + ev isareti.
+  // Yol henuz gelmediyse gecici duz (kus ucusu) kesikli cizgi, gelince yol cizilir.
   if (evineDon) {
     var sonIdx = sonuc.optimal_sira[sonuc.optimal_sira.length - 1];
     var sonDurak = veri.teslimatlar[sonIdx];
-    var ev = [aktifEv.lat, aktifEv.lon];
-    evCizgi = L.polyline([[sonDurak.lat, sonDurak.lon], ev], {
-      color: '#0891b2', weight: 4, opacity: 0.9, dashArray: '4, 8',
+    var ev = { lat: aktifEv.lat, lon: aktifEv.lon };
+    var anahtar = evYolAnahtar(sonDurak, ev);
+    var yol = evYolCache[anahtar];
+    var noktalar = yol || [[sonDurak.lat, sonDurak.lon], [ev.lat, ev.lon]];
+    evCizgi = L.polyline(noktalar, {
+      color: '#0891b2', weight: 4, opacity: 0.9, dashArray: yol ? null : '4, 8',
     }).addTo(map);
-    evMarker = L.circleMarker(ev, {
+    evMarker = L.circleMarker([ev.lat, ev.lon], {
       radius: 7, fillColor: '#0891b2', color: '#fff', weight: 2, fillOpacity: 1,
     }).bindTooltip(aktifEv.ad + ' — ev', {permanent: true, direction: 'top', offset: [0, -8]}).addTo(map);
     bounds.extend(evCizgi.getBounds());
+    if (!yol) evYoluGetir(sonDurak, ev, anahtar);   // yolu cek, gelince yeniden ciz
   }
 
   if (bounds.isValid()) map.fitBounds(bounds, {padding: [40, 40]});
+}
+
+function evYolAnahtar(a, b) {
+  return a.lat.toFixed(5) + ',' + a.lon.toFixed(5) + '>' + b.lat.toFixed(5) + ',' + b.lon.toFixed(5);
+}
+
+// Son duraktan eve gercek yolu (Directions) ceker, onbellege alir, sonra yeniden
+// cizer. Onbellek + bekleyen guard sayesinde ayni bacak icin tek ucretli istek olur.
+function evYoluGetir(sonDurak, ev, anahtar) {
+  if (evYolBekleyen[anahtar]) return;
+  evYolBekleyen[anahtar] = true;
+  fetch('/api/yol', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: [sonDurak.lat, sonDurak.lon], to: [ev.lat, ev.lon] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    evYolBekleyen[anahtar] = false;
+    if (d && d.polyline) {
+      evYolCache[anahtar] = decodePolyline(d.polyline);
+      if (document.getElementById('evine-don').checked) rotayiCiz();
+    }
+  })
+  .catch(function() { evYolBekleyen[anahtar] = false; });
 }
 
 function sureBicimle(dk) {
