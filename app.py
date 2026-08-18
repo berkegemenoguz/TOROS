@@ -333,6 +333,172 @@ def havuz_durum():
     })
 
 
+GUN_ADLARI = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+
+
+@app.route("/api/haftalik-plan", methods=["POST"])
+def haftalik_plan():
+    """Bekleyen teslimatlari ~1 haftalik takvime dagitir (rota degil, GUN atamasi).
+    Sadece kesinlesmemis (kesinlesmis=FALSE) teslimatlara dokunur; kesinlesmis
+    olanlar yerinde kalir ama gunlerinin kapasitesini dusurur. Her teslimatin
+    gunu terminini asamaz; ayni bolge ayni gune toplanir (kumeleme)."""
+    from datetime import timedelta
+
+    v = request.json or {}
+    bas_str = v.get("baslangic")
+    try:
+        baslangic = datetime.strptime(bas_str, "%Y-%m-%d").date() if bas_str \
+            else datetime.now().date()
+    except (ValueError, TypeError):
+        baslangic = datetime.now().date()
+    gun_sayisi = max(1, min(int(v.get("gun_sayisi") or 7), 14))
+    gunler = [baslangic + timedelta(days=i) for i in range(gun_sayisi)]
+
+    session = Session()
+
+    # Bolge -> arac kapasitesi (1 bolge = 1 arac; birden fazlaysa toplanir)
+    arac_rows = session.execute(text(
+        "SELECT id, adi, max_agirlik, max_hacim, bolge FROM araclar "
+        "WHERE aktif = TRUE AND bolge IS NOT NULL")).fetchall()
+    bolge_arac = {}
+    for a in arac_rows:
+        b = bolge_arac.setdefault(a.bolge, {"adi": a.adi, "cap_ag": 0.0, "cap_hc": 0.0})
+        b["cap_ag"] += float(a.max_agirlik)
+        b["cap_hc"] += float(a.max_hacim)
+
+    # Bekleyen (atanmamis, konumu belli) teslimatlar - kesinlesmis dahil
+    tes_rows = session.execute(text("""
+        SELECT t.id, t.agirlik, t.hacim, t.termin_tarihi, t.olusturma_zamani,
+               t.planlanan_gun, t.kesinlesmis, a.ilce
+        FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id
+        WHERE t.arac_id IS NULL AND t.lat IS NOT NULL AND t.lon IS NOT NULL
+    """)).fetchall()
+    session.close()
+
+    ILERI = date.max
+    bolge_veri = {}   # bolge -> {plansiz:[...], kilitli_yuk:{gun:[ag,hc]}}
+    tes_map = {}      # id -> {bolge, ag, hc, kesin}
+    bolgesiz = 0
+    for t in tes_rows:
+        bolge = bolge_bul(t.ilce)
+        ag, hc = float(t.agirlik or 0), float(t.hacim or 0)
+        if not bolge:
+            if not t.kesinlesmis:
+                bolgesiz += 1
+            continue
+        tes_map[t.id] = {"bolge": bolge, "ag": ag, "hc": hc, "kesin": bool(t.kesinlesmis)}
+        bv = bolge_veri.setdefault(bolge, {"plansiz": [], "kilitli_yuk": {}})
+        if t.kesinlesmis:
+            if t.planlanan_gun:
+                gy = bv["kilitli_yuk"].setdefault(t.planlanan_gun, [0.0, 0.0])
+                gy[0] += ag
+                gy[1] += hc
+        else:
+            bv["plansiz"].append({
+                "id": t.id, "ag": ag, "hc": hc,
+                "termin": t.termin_tarihi or ILERI,
+                "olusturma": t.olusturma_zamani or datetime.now()})
+
+    atamalar = {}   # tes_id -> gun (date)
+    sigmayan = []   # {id, bolge, neden}
+    for bolge, bv in bolge_veri.items():
+        arac = bolge_arac.get(bolge)
+        if not arac:
+            for t in bv["plansiz"]:
+                sigmayan.append({"id": t["id"], "bolge": bolge, "neden": "araç atanmamış"})
+            continue
+        # Gun bazli kalan kapasite (kilitli yukler onceden dusuldu)
+        kalan = {}
+        for g in gunler:
+            ky = bv["kilitli_yuk"].get(g, [0.0, 0.0])
+            kalan[g] = [arac["cap_ag"] - ky[0], arac["cap_hc"] - ky[1]]
+        # Termine gore yerlestir; her yuk EN DOLU uygun gune (kumeleme), esitlikte en erken
+        for t in sorted(bv["plansiz"], key=lambda x: (x["termin"], x["olusturma"])):
+            adaylar = [g for g in gunler
+                       if g <= t["termin"] and kalan[g][0] >= t["ag"] and kalan[g][1] >= t["hc"]]
+            if not adaylar:
+                neden = "termin penceresi geçti" if t["termin"] < gunler[0] else "hafta dolu"
+                sigmayan.append({"id": t["id"], "bolge": bolge, "neden": neden})
+                continue
+            hedef = max(adaylar, key=lambda g: (
+                (arac["cap_ag"] - kalan[g][0]) + (arac["cap_hc"] - kalan[g][1]),
+                -(g - gunler[0]).days))
+            kalan[hedef][0] -= t["ag"]
+            kalan[hedef][1] -= t["hc"]
+            atamalar[t["id"]] = hedef
+
+    # Yaz: kesinlesmemis teslimatlarin planlanan_gun'unu guncelle
+    session = Session()
+    for tid, gun in atamalar.items():
+        session.execute(text(
+            "UPDATE teslimatlar SET planlanan_gun = :g WHERE id = :id AND NOT kesinlesmis"),
+            {"g": gun, "id": tid})
+    sig_idler = [s["id"] for s in sigmayan]
+    if sig_idler:
+        session.execute(text(
+            "UPDATE teslimatlar SET planlanan_gun = NULL WHERE id = ANY(:ids) AND NOT kesinlesmis"),
+            {"ids": sig_idler})
+    session.commit()
+    session.close()
+
+    # Ozet: gun -> bolge -> yuk. Hem atanan hem kilitli yukler gosterilir.
+    gun_bolge = {}   # (gun, bolge) -> {adet, ag, hc, kesin}
+
+    def ekle(gun, bolge, ag, hc, kesin):
+        d = gun_bolge.setdefault((gun, bolge), {"adet": 0, "ag": 0.0, "hc": 0.0, "kesin": 0})
+        d["adet"] += 1
+        d["ag"] += ag
+        d["hc"] += hc
+        if kesin:
+            d["kesin"] += 1
+
+    for tid, gun in atamalar.items():
+        m = tes_map[tid]
+        ekle(gun, m["bolge"], m["ag"], m["hc"], False)
+    for t in tes_rows:
+        if t.kesinlesmis and t.planlanan_gun and t.planlanan_gun in gunler:
+            b = bolge_bul(t.ilce)
+            if b:
+                ekle(t.planlanan_gun, b, float(t.agirlik or 0), float(t.hacim or 0), True)
+
+    gun_ciktisi = []
+    for g in gunler:
+        bolgeler = []
+        for (gg, bolge), d in gun_bolge.items():
+            if gg != g:
+                continue
+            arac = bolge_arac.get(bolge, {})
+            cap_ag = arac.get("cap_ag") or 1
+            cap_hc = arac.get("cap_hc") or 1
+            doluluk = round(max(100 * d["ag"] / cap_ag, 100 * d["hc"] / cap_hc), 1)
+            bolgeler.append({
+                "bolge": bolge, "arac": arac.get("adi", ""),
+                "teslimat_sayisi": d["adet"],
+                "agirlik": round(d["ag"], 1), "hacim": round(d["hc"], 2),
+                "doluluk": doluluk, "kesin_adet": d["kesin"]})
+        bolgeler.sort(key=lambda x: -x["teslimat_sayisi"])
+        gun_ciktisi.append({
+            "tarih": str(g), "gun_adi": GUN_ADLARI[g.weekday()], "bolgeler": bolgeler})
+
+    uyarilar = []
+    if atamalar:
+        uyarilar.append(f"{len(atamalar)} teslimat {gun_sayisi} güne planlandı")
+    if sigmayan:
+        uyarilar.append(f"{len(sigmayan)} teslimat plana sığmadı (termin/kapasite)")
+    if bolgesiz:
+        uyarilar.append(f"{bolgesiz} teslimat bölgesiz — ilçesi bir bölgeye eşlenmiyor")
+
+    return jsonify({
+        "baslangic": str(baslangic),
+        "gun_sayisi": gun_sayisi,
+        "gunler": gun_ciktisi,
+        "sigmayanlar": sigmayan,
+        "bolgesiz": bolgesiz,
+        "ozet": {"planlanan": len(atamalar), "sigmayan": len(sigmayan)},
+        "uyarilar": uyarilar,
+    })
+
+
 def adres_geocode(adres):
     resp = requests.get(GEOCODE_URL, params={
         "address": adres, "key": API_KEY, "region": "tr", "language": "tr",
