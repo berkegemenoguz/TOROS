@@ -66,6 +66,12 @@
     background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
   }
   .form-grup input:focus { outline: none; border-color: #c31f3f; }
+  /* Checkbox'lar genel input stilinden (appearance:none, border, padding) muaf;
+     yoksa isaretli olsa bile bos kutu gorunur. */
+  .form-grup input[type="checkbox"] {
+    -webkit-appearance: auto; appearance: auto;
+    width: auto; padding: 0; border: 0; border-radius: 0;
+  }
 
   .depo-alan { background: #fff; border: 1px solid #ececee; padding: 14px; border-radius: 2px; margin-bottom: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
   .depo-alan .form-grup { margin-bottom: 6px; }
