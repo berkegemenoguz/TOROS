@@ -529,8 +529,16 @@ function detayKapasiteCiz() {
 
 // Bolge secim menusu opsiyonlari; secili bolge isaretlenir.
 function bolgeOpsiyonlari(secili) {
+  // Baska araclara atanmis bolgeler menude gosterilmez (1 bolge = 1 arac);
+  // mevcut aracin kendi bolgesi ise secili olarak kalir.
+  var alinmis = {};
+  Object.keys(araclar).forEach(function(id) {
+    if (parseInt(id) === seciliArac) return;
+    if (araclar[id].bolge) alinmis[araclar[id].bolge] = true;
+  });
   var html = '<option value="">— bölge seçilmedi —</option>';
   bolgeListesi.forEach(function(b) {
+    if (alinmis[b] && b !== secili) return;
     html += '<option value="' + kacar(b) + '"' + (b === secili ? ' selected' : '') + '>'
           + kacar(b) + '</option>';
   });
