@@ -7,17 +7,18 @@ Sistem iki ayrı ekrandan oluşur:
 | Ekran | Amaç | Algoritma | Google API |
 |-------|------|-----------|------------|
 | **Harita** (`/`) | Tek aracın durak sırasını optimize eder | Budamalı arama / hibrit arama | Evet — **ücretli** |
-| **Filo** (`/filo`) | 150+ teslimatı araçlara dağıtır | Clarke-Wright + 2-opt | Hayır |
+| **Filo** (`/filo`) | 150+ teslimatı bölge araçlarına dağıtır | Doluluk-eşikli bölge dağıtımı + 2-opt | Hayır |
 
 ## Özellikler
 
 ### Filo yönetimi (`/filo`)
-- Clarke-Wright tasarruf algoritması ile otomatik teslimat dağıtımı
-- Kapasite (kg + m³) ve vardiya süresi **sert kısıt** — ihlalli plan üretilemez
-- Best-fit araç ataması: her rotaya sığdıran en küçük araç
-- Boğaz geçişi cezası ile yaka bazlı rota kümelenmesi
+- Doluluk-eşikli bölge dağıtımı: her araç bir bölgeye hizmet eder, yükler bölgesinde birikir, araç ekonomik doluluğa ulaşınca (ya da termin/bekleme tavanı zorlayınca) çıkar
+- Kapasite (kg + m³) **sert kısıt**; vardiya süresi aşılırsa **uyarı** verir
+- Araç ataması bölgeye göre: bölgenin yükü kendi aracına, öncelik sırasıyla (termin → yaş) sığdığı kadar
+- Esnaf açık rota: rota şoförün evinde biter (ev yoksa depoya döner)
+- Boğaz geçişi cezası ile yaka bazlı mesafe modeli
 - Kalıcı rota sırası (`sira` kolonu), sürükle-bırak ile manuel atama
-- İlçeye göre gruplanmış teslimat havuzu, araç listesi + detay paneli
+- İlçeye göre gruplanmış teslimat havuzu + bölge durumu paneli (hazır/bekleyen)
 - Doluluk / vardiya kullanımı özeti ve filo boyutlandırma uyarıları
 
 ### Harita (`/`)
@@ -77,41 +78,49 @@ PostgreSQL, dört tablo:
 
 | Dosya | Açıklama |
 |-------|----------|
-| `app.py` | Flask sunucusu, REST API, Clarke-Wright dağıtım algoritması, İstanbul sınır kontrolü |
+| `app.py` | Flask sunucusu, REST API, doluluk-eşikli bölge dağıtım algoritması, İstanbul sınır kontrolü |
 | `coklu_teslimat.py` | Harita rota optimizasyonu (budamalı arama, hibrit arama, 2-opt, Distance Matrix) |
 | `rota.py` | Tek rota hesaplama (Google Directions API) |
 | `harita.py` | HTML harita oluşturma |
 | `templates/index.html` | Harita arayüzü (form + Leaflet) |
-| `templates/filo.html` | Filo yönetimi arayüzü (araç listesi + detay paneli + teslimat havuzu) |
+| `templates/filo.html` | Filo yönetimi arayüzü (araç listesi + detay paneli + teslimat havuzu + bölge durumu) |
+| `migrations/` | Sıralı SQL şema değişiklikleri (elle uygulanır; şema Postgres'te tutulur) |
 
 ## Algoritmalar
 
-### Clarke-Wright tasarruf algoritması — filo dağıtımı
+### Doluluk-eşikli bölge dağıtımı — filo dağıtımı
 
-`POST /api/dagit`. Hangi teslimatın hangi araca gideceğini ve araç içi durak sırasını birlikte çözer.
+`POST /api/dagit`. Her araç bir **bölgeye** hizmet eder (18 bölge, ilçe → bölge eşlemesi `BOLGELER` sabitindedir). Yükler bölgesinde birikir; araç yarım çıkmaz, ekonomik doluluğa ulaşınca yola çıkar. `GET /api/havuz` bu birikim durumunu (hangi bölge hazır/bekliyor) salt-okunur döndürür.
 
-1. Her teslimat tek başına bir rota olarak başlar (depo → teslimat → depo)
-2. Her (i, j) çifti için tasarruf hesaplanır: `depo→i + depo→j − i→j`
-3. Tasarruflar büyükten küçüğe işlenir; iki rota **ancak** kapasite ve vardiya süresi aşılmıyorsa ve birleşme noktaları rota uçlarındaysa birleştirilir
-4. Her rota 2-opt ile iç sıralaması iyileştirilir
-5. Rotalar hacme göre sıralanır, her birine sığdıran en küçük araç atanır (best-fit)
+**Bir bölge şu koşullardan biriyle "hazır" olur (öncelik sırası: termin > bekleme > doluluk):**
+1. Bekleyen bir yükün termini bugün ya da geçmiş — **sert kısıt, eşiği ezer**
+2. En eski yükün yaşı `BEKLEME_TAVANI_GUN`'u doldurmuş — sonsuz beklemeyi keser (sayaç en eski yüke bağlı, araca değil)
+3. Doluluk (`max(ağırlık%, hacim%)`) `DOLULUK_ESIK`'i geçmiş — ekonomik yumuşak hedef
 
-Mesafe modeli Google API kullanmaz: haversine × 1.35 yol sapma katsayısı, farklı yakalar arasında +12 km Boğaz köprüsü cezası. Bu ceza tasarruf hesabına girdiği için algoritma doğal olarak aynı yakadaki teslimatları kümeler.
+**Sadece hazır bölgeler çıkar. Her hazır bölge için:**
+1. Bölgenin yükleri öncelik sırasıyla (termin, sonra yaş) **kendi aracına** sığdığı kadar yüklenir; sığmayan havuzda bekler
+2. Durak sırası **en yakın komşu + 2-opt** ile çözülür
+3. **Esnaf açık rota:** rota depo → duraklar → şoförün evinde biter. Eve dönüş bacağı **yola** (2-opt hedefi) girer ama **vardiyaya** (mesai kısıtı) girmez — evine uzak biten rota mesafe metriğinde kötü görünür, algoritma kaçınır. Şoförün ev konumu yoksa rota depoya döner (kapalı)
+4. Aracı yolda (meşgul, `durum='atandi'` yükü olan) olan bölge o gün çıkamaz
+
+Mesafe modeli Google API kullanmaz: haversine × 1.35 yol sapma katsayısı, farklı yakalar arasında +12 km Boğaz köprüsü cezası.
 
 Parametreler `app.py` başında tanımlıdır:
 
 | Parametre | Değer | Açıklama |
 |-----------|-------|----------|
 | `SERVIS_DK` | 25 dk | Teslimat başına sabit süre (montaj + taşıma dahil) |
-| `VARDIYA_DK` | 540 dk | 9 saatlik vardiya |
+| `VARDIYA_DK` | 540 dk | 9 saatlik vardiya (aşılırsa uyarı) |
 | `HIZ_KMH` | 25 km/s | İstanbul içi ortalama hız |
 | `YOL_SAPMA` | 1.35 | Kuş uçuşu → gerçek yol çarpanı |
 | `KOPRU_KM` | 12 km | Boğaz geçişi cezası |
+| `DOLULUK_ESIK` | %80 | Bölgenin çıkması için doluluk eşiği |
+| `BEKLEME_TAVANI_GUN` | 3 gün | En eski yük için zorunlu çıkış tavanı |
 | `HEDEF_DOLULUK` | %70–82 | Filo boyutlandırma uyarı bandı |
 
 > Servis süresi sonucu en çok değiştiren varsayımdır; sahadan gerçek veri geldiğinde önce burası güncellenmelidir. Sürücü kâğıdındaki "varış saati" alanı bu ölçümün ilk halkasıdır.
 
-**Bilinen sınır:** Clarke-Wright randevu pencerelerini dikkate almaz. Pencere mantığı şu an yalnızca `coklu_teslimat.py` içinde (tek araç yolunda) mevcuttur.
+**Bilinen sınır:** Dağıtım randevu pencerelerini dikkate almaz. Pencere mantığı şu an yalnızca `coklu_teslimat.py` içinde (tek araç yolunda) mevcuttur.
 
 ### Budamalı arama (branch and bound) — harita, ≤14 teslimat
 

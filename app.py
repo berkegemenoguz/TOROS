@@ -510,7 +510,7 @@ def teslimat_guncelle(tes_id):
 
 
 # ---------------------------------------------------------------------------
-# Dagitim parametreleri (Clarke-Wright tasarruf algoritmasi)
+# Dagitim parametreleri (doluluk-esikli bolge dagitimi + bolge-ici 2-opt)
 # Kat suresi sonucu en cok degistiren varsayimdir; sahadan gercek deger
 # geldiginde once burasi guncellenmeli.
 # ---------------------------------------------------------------------------
