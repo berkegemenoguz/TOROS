@@ -258,6 +258,12 @@
     color: #c4c4c8; border-color: #e4e4e7; cursor: not-allowed;
   }
   .btn-yazdir:disabled:hover, .btn-yazdir-tum:disabled:hover { color: #c4c4c8; border-color: #e4e4e7; }
+  .btn-tamamla {
+    float: right; background: #ecfdf5; color: #15803d; border: 1px solid #a7f3d0;
+    padding: 3px 10px; font-size: 11px; width: auto; cursor: pointer; border-radius: 2px;
+    margin-right: 6px;
+  }
+  .btn-tamamla:hover { border-color: #15803d; }
 
   /* --- Yazdirma alani: ekranda gizli, sadece baskida gorunur --- */
   #yazdir-alani { display: none; }
@@ -316,6 +322,7 @@
   <nav class="sekmeler">
     <a href="/">Rota Optimizasyonu</a>
     <a href="/filo" class="aktif">Filo Yönetimi</a>
+    <a href="/plan">Haftalık Plan</a>
     <a href="/sofor">Şoför Yönetimi</a>
   </nav>
 </div>
@@ -585,8 +592,9 @@ function aracDetayCiz() {
     + '  <button class="arac-sil" onclick="aracSil(' + id + ')">&times;</button>'
     + (a.rotaKm != null && a.teslimatlar.length
         ? '  <button class="btn-yazdir" onclick="aracYazdir(' + id + ')">Yazdır</button>'
+          + '  <button class="btn-tamamla" onclick="gunuTamamla(' + id + ')" title="Rotayı tamamla, aracı serbest bırak">Günü Tamamla</button>'
         : (a.teslimatlar.length
-            ? '  <button class="btn-yazdir" disabled title="Önce Otomatik Dağıt ile rota oluşturun">Yazdır</button>'
+            ? '  <button class="btn-yazdir" disabled title="Önce günü Rotala ile rota oluşturun">Yazdır</button>'
             : ''))
     + '  <span class="arac-isim">' + a.adi + '</span> <span class="arac-tip">' + a.tip + '</span>'
     + (a.plaka ? ' <span style="color:#9ca3af;font-size:11px;">' + a.plaka + '</span>' : '')
@@ -1087,6 +1095,9 @@ function filoyuYukle() {
     var teslimatListesi = sonuclar[1];
     bolgeListesi = sonuclar[2] || [];
 
+    // Teslim edilenler panodan duser (gunu tamamlanmis rota)
+    teslimatListesi = teslimatListesi.filter(function(t) { return t.durum !== 'teslim_edildi'; });
+
     araclar = {};
     teslimatlar = {};
     document.getElementById('arac-satirlar').innerHTML =
@@ -1261,6 +1272,22 @@ function aracYazdir(id) {
     alert('Önce Otomatik Dağıt ile rota oluşturun.'); return;
   }
   yazdirmaCalistir([id]);
+}
+
+// Aracin gununu tamamlar: teslimatlari 'teslim edildi' yapar, araci serbest
+// birakir (bir daha 'mesgul' sayilmaz, ertesi gun cikabilir).
+function gunuTamamla(id) {
+  var a = araclar[id];
+  if (!a) return;
+  if (!confirm(a.adi + ' rotası tamamlanacak — ' + a.teslimatlar.length
+      + ' teslimat "teslim edildi" olarak işaretlenip araç serbest bırakılacak. Devam?')) return;
+  fetch('/api/araclar/' + id + '/tamamla', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(veri) {
+      alert(a.adi + ': ' + (veri.teslim_edilen || 0) + ' teslimat tamamlandı, araç serbest.');
+      filoyuYukle();
+    })
+    .catch(function() { alert('Tamamlama hatası'); });
 }
 
 function tumunuYazdir() {

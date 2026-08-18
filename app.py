@@ -43,6 +43,11 @@ def sofor():
     return send_file("templates/sofor.html")
 
 
+@app.route("/plan")
+def plan():
+    return send_file("templates/plan.html")
+
+
 @app.route("/geocode", methods=["POST"])
 def geocode():
     adres = request.json.get("adres", "")
@@ -109,6 +114,24 @@ def arac_listele():
         "sofor_id": r.sofor_id, "sofor_ad": r.sofor_ad or "",
         "bolge": r.bolge or ""
     } for r in rows])
+
+
+@app.route("/api/araclar/<int:arac_id>/tamamla", methods=["POST"])
+def arac_gunu_tamamla(arac_id):
+    """Aracin o anki rotasini tamamlar: atanmis (durum='atandi') teslimatlari
+    'teslim_edildi' yapar ve aracin son rota metrigini temizler. Boylece arac
+    artik 'mesgul' sayilmaz, ertesi gunun planina cikabilir."""
+    session = Session()
+    n = session.execute(text(
+        "UPDATE teslimatlar SET durum = 'teslim_edildi' "
+        "WHERE arac_id = :id AND durum = 'atandi'"
+    ), {"id": arac_id}).rowcount
+    session.execute(text(
+        "UPDATE araclar SET son_rota_km = NULL, son_rota_dk = NULL WHERE id = :id"
+    ), {"id": arac_id})
+    session.commit()
+    session.close()
+    return jsonify({"ok": True, "teslim_edilen": n})
 
 
 @app.route("/api/araclar/<int:arac_id>/sofor", methods=["PUT"])
@@ -336,6 +359,86 @@ def havuz_durum():
 GUN_ADLARI = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 
 
+def _gun_ciktisi(gunler, gun_bolge, bolge_arac):
+    """Gun+bolge yuk ozetinden takvim ciktisini kurar (POST plan ve GET plan-durum
+    ayni sekli dondursun diye ortak)."""
+    out = []
+    for g in gunler:
+        bolgeler = []
+        for (gg, bolge), d in gun_bolge.items():
+            if gg != g:
+                continue
+            arac = bolge_arac.get(bolge, {})
+            cap_ag = arac.get("cap_ag") or 1
+            cap_hc = arac.get("cap_hc") or 1
+            doluluk = round(max(100 * d["ag"] / cap_ag, 100 * d["hc"] / cap_hc), 1)
+            bolgeler.append({
+                "bolge": bolge, "arac": arac.get("adi", ""),
+                "teslimat_sayisi": d["adet"],
+                "agirlik": round(d["ag"], 1), "hacim": round(d["hc"], 2),
+                "doluluk": doluluk, "kesin_adet": d["kesin"]})
+        bolgeler.sort(key=lambda x: -x["teslimat_sayisi"])
+        out.append({
+            "tarih": str(g), "gun_adi": GUN_ADLARI[g.weekday()], "bolgeler": bolgeler})
+    return out
+
+
+def _bolge_arac_kapasite(session):
+    """Bolge -> {adi, cap_ag, cap_hc} (1 bolge = 1 arac; birden fazlaysa toplanir)."""
+    rows = session.execute(text(
+        "SELECT adi, max_agirlik, max_hacim, bolge FROM araclar "
+        "WHERE aktif = TRUE AND bolge IS NOT NULL")).fetchall()
+    bolge_arac = {}
+    for a in rows:
+        b = bolge_arac.setdefault(a.bolge, {"adi": a.adi, "cap_ag": 0.0, "cap_hc": 0.0})
+        b["cap_ag"] += float(a.max_agirlik)
+        b["cap_hc"] += float(a.max_hacim)
+    return bolge_arac
+
+
+@app.route("/api/plan-durum", methods=["GET"])
+def plan_durum():
+    """Mevcut haftalik plani (salt okunur) takvim olarak dondurur - yeniden
+    hesaplamaz. Arayuz acilista ve kilit degisiminden sonra bunu kullanir."""
+    from datetime import timedelta
+    bas_str = request.args.get("baslangic")
+    try:
+        baslangic = datetime.strptime(bas_str, "%Y-%m-%d").date() if bas_str \
+            else datetime.now().date()
+    except (ValueError, TypeError):
+        baslangic = datetime.now().date()
+    gun_sayisi = max(1, min(int(request.args.get("gun_sayisi") or 7), 14))
+    gunler = [baslangic + timedelta(days=i) for i in range(gun_sayisi)]
+
+    session = Session()
+    bolge_arac = _bolge_arac_kapasite(session)
+    rows = session.execute(text("""
+        SELECT t.agirlik, t.hacim, t.planlanan_gun, t.kesinlesmis, a.ilce
+        FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id
+        WHERE t.arac_id IS NULL AND t.planlanan_gun = ANY(:gunler)
+    """), {"gunler": gunler}).fetchall()
+    session.close()
+
+    gun_bolge = {}
+    for r in rows:
+        bolge = bolge_bul(r.ilce)
+        if not bolge:
+            continue
+        d = gun_bolge.setdefault((r.planlanan_gun, bolge),
+                                 {"adet": 0, "ag": 0.0, "hc": 0.0, "kesin": 0})
+        d["adet"] += 1
+        d["ag"] += float(r.agirlik or 0)
+        d["hc"] += float(r.hacim or 0)
+        if r.kesinlesmis:
+            d["kesin"] += 1
+
+    return jsonify({
+        "baslangic": str(baslangic),
+        "gun_sayisi": gun_sayisi,
+        "gunler": _gun_ciktisi(gunler, gun_bolge, bolge_arac),
+    })
+
+
 @app.route("/api/plan/kesinlestir", methods=["POST"])
 def plan_kesinlestir():
     """Bir gun+bolge hucresindeki (planlanan_gun=tarih, o bolgenin) atanmamis
@@ -490,24 +593,7 @@ def haftalik_plan():
             if b:
                 ekle(t.planlanan_gun, b, float(t.agirlik or 0), float(t.hacim or 0), True)
 
-    gun_ciktisi = []
-    for g in gunler:
-        bolgeler = []
-        for (gg, bolge), d in gun_bolge.items():
-            if gg != g:
-                continue
-            arac = bolge_arac.get(bolge, {})
-            cap_ag = arac.get("cap_ag") or 1
-            cap_hc = arac.get("cap_hc") or 1
-            doluluk = round(max(100 * d["ag"] / cap_ag, 100 * d["hc"] / cap_hc), 1)
-            bolgeler.append({
-                "bolge": bolge, "arac": arac.get("adi", ""),
-                "teslimat_sayisi": d["adet"],
-                "agirlik": round(d["ag"], 1), "hacim": round(d["hc"], 2),
-                "doluluk": doluluk, "kesin_adet": d["kesin"]})
-        bolgeler.sort(key=lambda x: -x["teslimat_sayisi"])
-        gun_ciktisi.append({
-            "tarih": str(g), "gun_adi": GUN_ADLARI[g.weekday()], "bolgeler": bolgeler})
+    gun_ciktisi = _gun_ciktisi(gunler, gun_bolge, bolge_arac)
 
     uyarilar = []
     if atamalar:
