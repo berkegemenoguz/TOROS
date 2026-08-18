@@ -758,8 +758,7 @@ function serbestRotaGoster(aracId) {
   if (evineDon) { noktalar.push([aktifEv.lat, aktifEv.lon]); }
   else if (depoyaDon) { noktalar.push([depoLat, depoLon]); }
 
-  var cizgi = L.polyline(noktalar, { color: '#4f9bff', weight: 4, opacity: 0.85, dashArray: '6, 6' }).addTo(map);
-  rotaCizgiler.push(cizgi);
+  // Noktalar arasi cizgi cizilmez - sadece isaretler gosterilir (kullanici istegi)
   if (evineDon) {
     evMarker = L.circleMarker([aktifEv.lat, aktifEv.lon], {
       radius: 7, fillColor: '#0891b2', color: '#fff', weight: 2, fillOpacity: 1
@@ -789,7 +788,7 @@ function serbestRotaGoster(aracId) {
   window._mapsUrl = 'https://www.google.com/maps/dir/' + depoStr + '/' + wp.join('/') + '/' + dest;
   document.getElementById('maps-butonlar').style.display = 'flex';
 
-  haritayaSigdir(cizgi.getBounds().pad(0.2));
+  haritayaSigdir(L.latLngBounds(noktalar).pad(0.2));
   return true;
 }
 
