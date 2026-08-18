@@ -796,28 +796,28 @@ def otomatik_dagit():
 
     session = Session()
 
-    # 1) Havuz durumu: hangi bolgeler bugun cikmaya hazir?
-    havuz_sonuc, bolgesiz, bugun = bolge_havuzu(session)
-    hazir = [h for h in havuz_sonuc if h["hazir"]]
-    bekleyen = [h for h in havuz_sonuc if not h["hazir"]]
+    # 1) Hangi gunun plani rotalanacak? (varsayilan: bugun). Haftalik plan gunleri
+    #    onceden atar; /api/dagit o gunun planini rotaya cevirir (rota o gun cikar).
+    v = request.json or {}
+    tarih_str = v.get("tarih")
+    try:
+        tarih = datetime.strptime(tarih_str, "%Y-%m-%d").date() if tarih_str \
+            else datetime.now().date()
+    except (ValueError, TypeError):
+        tarih = datetime.now().date()
 
-    def bekleyen_ozet():
-        return [{
-            "bolge": h["bolge"], "teslimat_sayisi": h["teslimat_sayisi"],
-            "doluluk": h["doluluk"], "en_eski_gun": h["en_eski_gun"],
-            "termin_durumu": h["termin_durumu"],
-        } for h in bekleyen]
-
-    if not hazir:
+    planli_sayi = session.execute(text(
+        "SELECT count(*) FROM teslimatlar "
+        "WHERE arac_id IS NULL AND planlanan_gun = :g AND lat IS NOT NULL"
+    ), {"g": tarih}).scalar()
+    if not planli_sayi:
         session.close()
         return jsonify({
-            "atamalar": {}, "rotalar": [], "acikta_teslimatlar": [],
-            "bekleyen": bekleyen_ozet(), "bolgesiz": bolgesiz,
+            "atamalar": {}, "rotalar": [], "acikta_teslimatlar": [], "bolgesiz": 0,
             "ozet": {"teslimat": 0, "atanan": 0, "acikta": 0, "kullanilan_arac": 0,
                      "toplam_arac": 0, "toplam_km": 0.0, "doluluk_agirlik": 0.0,
-                     "doluluk_hacim": 0.0, "vardiya_yuzde": 0,
-                     "hazir_bolge": 0, "bekleyen_bolge": len(bekleyen)},
-            "uyarilar": ["Bugün çıkmaya hazır bölge yok — tüm yükler havuzda bekliyor"],
+                     "doluluk_hacim": 0.0, "vardiya_yuzde": 0, "tarih": str(tarih)},
+            "uyarilar": [f"{tarih} gününe planlanmış teslimat yok — önce Haftalık Planla"],
         })
 
     depo = session.execute(text("SELECT * FROM depolar ORDER BY id LIMIT 1")).fetchone()
@@ -848,21 +848,21 @@ def otomatik_dagit():
         "WHERE arac_id IS NOT NULL AND durum = 'atandi'"
     )).fetchall() if r.arac_id is not None}
 
-    # 3) Hazir bolgelerin bekleyen teslimatlari (konumu belli, atanmamis)
-    hazir_bolge_adlari = {h["bolge"] for h in hazir}
+    # 3) O gune planlanmis (henuz rotalanmamis) teslimatlari bolgeye gore grupla
     tes_rows = session.execute(text("""
         SELECT t.id, t.agirlik, t.hacim, t.lat, t.lon,
                t.termin_tarihi, t.olusturma_zamani, a.ilce
         FROM teslimatlar t
         LEFT JOIN adresler a ON a.id = t.adres_id
-        WHERE t.arac_id IS NULL AND t.lat IS NOT NULL AND t.lon IS NOT NULL
-    """)).fetchall()
+        WHERE t.arac_id IS NULL AND t.planlanan_gun = :g
+              AND t.lat IS NOT NULL AND t.lon IS NOT NULL
+    """), {"g": tarih}).fetchall()
 
     ILERI_TARIH = date.max
     bolge_tesler = {}
     for t in tes_rows:
         bolge = bolge_bul(t.ilce)
-        if bolge not in hazir_bolge_adlari:
+        if not bolge:
             continue
         bolge_tesler.setdefault(bolge, []).append({
             "id": t.id,
@@ -947,14 +947,13 @@ def otomatik_dagit():
     #    sigdigi kadar yukle. Sigmayan havuzda bekler (arac_id NULL kalir).
     atamalar, detaylar, acikta = {}, [], []
     uyarilar = []
-    for h in hazir:
-        bolge = h["bolge"]
+    for bolge in bolge_tesler:
         araclar_b = [a for a in bolge_araclar.get(bolge, []) if a["id"] not in mesgul_idler]
         if not bolge_araclar.get(bolge):
-            uyarilar.append(f"{bolge} hazır ama atanmış araç yok — yük havuzda kaldı")
+            uyarilar.append(f"{bolge}: atanmış araç yok — plan rotalanamadı")
             continue
         if not araclar_b:
-            uyarilar.append(f"{bolge} hazır ama aracı yolda (meşgul) — yük havuzda kaldı")
+            uyarilar.append(f"{bolge}: aracı yolda (meşgul) — plan rotalanamadı")
             continue
 
         kalan_tes = sorted(bolge_tesler.get(bolge, []),
@@ -993,18 +992,18 @@ def otomatik_dagit():
                 "doluluk_agirlik": round(100 * ag / arac["mag"], 1),
                 "doluluk_hacim": round(100 * hc / arac["mhc"], 1),
                 "vardiya_yuzde": vardiya_yuzde,
-                "sebep": h["sebep"],
+                "sebep": f"{tarih} planı",
             })
             if vardiya_yuzde > 100:
                 uyarilar.append(
                     f"{arac['adi']} ({bolge}) vardiyayı aşıyor (%{vardiya_yuzde}) "
                     f"— rota 9 saate sığmıyor")
 
-        # bolgenin aracina sigmayan yukler havuzda bekliyor
+        # bolgenin aracina sigmayan yukler (plan kapasiteyi asmis olabilir)
         if kalan_tes:
             acikta.extend(t["id"] for t in kalan_tes)
             uyarilar.append(
-                f"{bolge}: {len(kalan_tes)} yük araca sığmadı, havuzda bekliyor")
+                f"{bolge}: {len(kalan_tes)} yük araca sığmadı — planı gözden geçirin")
 
     # 5) Yazma: atanan teslimatlar + sira; sadece cikan araclarin rota metrigi
     for arac_id, tes_idler in atamalar.items():
@@ -1034,9 +1033,7 @@ def otomatik_dagit():
                     / (kullanilan * VARDIYA_DK)) if kullanilan else 0
 
     if kullanilan:
-        uyarilar.insert(0, f"{kullanilan} araç yola çıktı, {atanan} teslimat atandı")
-    if bekleyen:
-        uyarilar.append(f"{len(bekleyen)} bölge henüz hazır değil — havuzda birikiyor")
+        uyarilar.insert(0, f"{tarih}: {kullanilan} araç rotalandı, {atanan} teslimat")
 
     return jsonify({
         "atamalar": {str(k): v for k, v in atamalar.items()},
@@ -1050,13 +1047,10 @@ def otomatik_dagit():
             "doluluk_agirlik": dol_ag,
             "doluluk_hacim": dol_hc,
             "vardiya_yuzde": vardiya,
-            "hazir_bolge": len(hazir),
-            "bekleyen_bolge": len(bekleyen),
+            "tarih": str(tarih),
         },
         "rotalar": detaylar,
         "acikta_teslimatlar": acikta,
-        "bekleyen": bekleyen_ozet(),
-        "bolgesiz": bolgesiz,
         "uyarilar": uyarilar,
     })
 
