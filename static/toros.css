@@ -1,0 +1,123 @@
+/* TOROS ortak koyu tema + tasarim sistemi.
+   Tum sayfalar bunu yukler; renk/bilesen tek yerden yonetilir.
+   Estetik: Haftalik Plan sayfasi (temiz kart, doluluk cubugu), koyu zeminde. */
+
+:root {
+  --bg: #141418;
+  --surface: #1d1d22;
+  --surface-2: #26262c;
+  --surface-3: #2f2f36;
+  --border: #33333b;
+  --border-strong: #45454f;
+
+  --text: #e9e9ec;
+  --text-2: #a1a1aa;
+  --text-muted: #71717a;
+
+  --brand: #e5455f;          /* TOROS kirmizisi (koyuda parlatilmis) */
+  --brand-hover: #f2607a;
+  --brand-bg: #2a1519;       /* aktif sekme / vurgu zemini */
+
+  --teal: #22c58e;           /* doluluk >= %80 */
+  --amber: #f0a933;          /* yarim (termin zorladi) */
+  --accent: #4f9bff;         /* kilit / bilgi */
+  --accent-bg: #16233b;
+  --ok: #22c58e;             /* gunu tamamla / basari */
+  --ok-bg: #14301f;
+  --uyari-bg: #33260f;
+  --uyari-text: #f0a933;
+
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  display: flex; flex-direction: column;
+}
+
+/* ---- Acilis ekrani ---- */
+#splash {
+  position: fixed; inset: 0; background: var(--brand); z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; transition: opacity 0.5s;
+}
+#splash.kapan { opacity: 0; pointer-events: none; }
+#splash .splash-firma { max-width: 320px; margin-bottom: 22px; }
+#splash .splash-logo { font-size: 44px; font-weight: 800; color: #fff; letter-spacing: 2px; }
+#splash .splash-alt { font-size: 11px; letter-spacing: 6px; color: rgba(255,255,255,0.8); text-transform: uppercase; }
+
+/* ---- Ust bar + sekmeler ---- */
+.ust-bar {
+  background: var(--surface); padding: 12px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 20px; z-index: 500;
+}
+.ust-bar h1 { font-size: 22px; font-weight: 800; color: var(--brand); letter-spacing: 1px; line-height: 1.1; }
+.sekmeler { display: flex; gap: 4px; margin-left: 12px; }
+.sekmeler a {
+  color: var(--text-2); font-size: 13px; text-decoration: none; font-weight: 600;
+  padding: 8px 16px; border-radius: var(--radius);
+}
+.sekmeler a:hover { color: var(--brand); background: var(--surface-2); }
+.sekmeler a.aktif { color: var(--brand); background: var(--brand-bg); }
+
+/* ---- Kartlar / kolonlar ---- */
+.kolon, .kart {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 15px;
+}
+.kolon h2, .kart h2 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text-2); margin-bottom: 10px; font-weight: 600;
+}
+.bos-mesaj { color: var(--text-muted); text-align: center; padding: 24px 0; font-size: 13px; }
+
+/* ---- Butonlar ---- */
+.btn {
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit; background: var(--surface-2); color: var(--text); width: auto;
+}
+.btn:hover { border-color: var(--brand); color: var(--brand); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn:disabled:hover { border-color: var(--border-strong); color: var(--text); }
+.btn-brand { background: var(--brand); color: #fff; border-color: var(--brand); }
+.btn-brand:hover { background: var(--brand-hover); border-color: var(--brand-hover); color: #fff; }
+.btn-ok { background: var(--ok-bg); color: var(--ok); border-color: #1f5738; }
+.btn-ok:hover { border-color: var(--ok); color: var(--ok); }
+.btn-kucuk { padding: 5px 12px; font-size: 11px; }
+
+/* ---- Form ---- */
+.form-grup { margin-bottom: 10px; }
+.form-grup label { display: block; font-size: 11px; color: var(--text-2); margin-bottom: 3px; }
+.form-grup input, .form-grup select, .form-grup textarea {
+  width: 100%; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--radius); font-size: 13px; font-family: inherit;
+  -webkit-appearance: none; appearance: none;
+}
+.form-grup input:focus, .form-grup select:focus, .form-grup textarea:focus {
+  outline: none; border-color: var(--brand);
+}
+.form-grup input::placeholder { color: var(--text-muted); }
+.form-grup select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a1a1aa'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+}
+/* checkbox'lar genel input stilinden muaf (yoksa isaretli bile bos kutu gorunur) */
+.form-grup input[type="checkbox"] {
+  -webkit-appearance: auto; appearance: auto; width: auto; padding: 0; border: 0;
+  accent-color: var(--brand);
+}
+
+/* ---- Doluluk cubugu (ortak) ---- */
+.doluluk-bar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+.doluluk-bar > div { height: 100%; }
+
+/* ---- Rozetler ---- */
+.rozet { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 10px; }
+.rozet-uyari { background: var(--uyari-bg); color: var(--uyari-text); }
+.rozet-bilgi { background: var(--accent-bg); color: var(--accent); }
+.rozet-ok { background: var(--ok-bg); color: var(--ok); }
