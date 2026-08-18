@@ -336,6 +336,35 @@ def havuz_durum():
 GUN_ADLARI = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 
 
+@app.route("/api/plan/kesinlestir", methods=["POST"])
+def plan_kesinlestir():
+    """Bir gun+bolge hucresindeki (planlanan_gun=tarih, o bolgenin) atanmamis
+    teslimatlarin plan kilidini acar/kapatir. kesinlesmis=TRUE ise sonraki
+    haftalik plan bu teslimatlara dokunmaz. Arayuzdeki kilit ikonu buraya basar."""
+    v = request.json or {}
+    tarih = v.get("tarih")
+    bolge = v.get("bolge")
+    kesin = bool(v.get("kesinlesmis"))
+    if not tarih or not bolge:
+        return jsonify({"hata": "tarih ve bolge gerekli"}), 400
+
+    session = Session()
+    # O gune planlanmis atanmamis teslimatlari cek, bolgeye gore filtrele
+    rows = session.execute(text("""
+        SELECT t.id, a.ilce FROM teslimatlar t
+        LEFT JOIN adresler a ON a.id = t.adres_id
+        WHERE t.planlanan_gun = :g AND t.arac_id IS NULL
+    """), {"g": tarih}).fetchall()
+    idler = [r.id for r in rows if bolge_bul(r.ilce) == bolge]
+    if idler:
+        session.execute(text(
+            "UPDATE teslimatlar SET kesinlesmis = :k WHERE id = ANY(:ids)"),
+            {"k": kesin, "ids": idler})
+        session.commit()
+    session.close()
+    return jsonify({"ok": True, "kesinlesmis": kesin, "etkilenen": len(idler)})
+
+
 @app.route("/api/haftalik-plan", methods=["POST"])
 def haftalik_plan():
     """Bekleyen teslimatlari ~1 haftalik takvime dagitir (rota degil, GUN atamasi).
