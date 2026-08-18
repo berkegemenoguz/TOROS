@@ -162,7 +162,8 @@
   <div id="teslimat-alani" style="display:none;">
   <h2>Teslimat Noktaları</h2>
   <div id="teslimat-listesi" class="teslimat-listesi"></div>
-  <button class="btn btn-hesapla" id="btn-hesapla" onclick="hesapla()">Rota Hesapla</button>
+  <button class="btn btn-hesapla" id="btn-hesapla" onclick="hesapla()">Google ile Optimize Et (ücretli)</button>
+  <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:center;">Rotala sırası ücretsiz gösterilir · Google trafik-farkında optimize ücretlidir</div>
   </div>
 
   <div class="yukleniyor" id="yukleniyor">Hesaplanıyor...</div>
@@ -236,7 +237,8 @@ function bitisDegisti(kaynak) {
   var ev = document.getElementById('evine-don');
   if (kaynak === 'ev' && ev.checked) dep.checked = false;
   if (kaynak === 'depo' && dep.checked) ev.checked = false;
-  if (sonSonuc) { rotayiCiz(); linkVeListeGuncelle(); }
+  if (sonSonuc) { rotayiCiz(); linkVeListeGuncelle(); }          // ucretli optimize sonucu
+  else if (seciliArac != null) { serbestRotaGoster(seciliArac); }  // ucretsiz sira
 }
 document.getElementById('depoya-don').addEventListener('change', function() { bitisDegisti('depo'); });
 document.getElementById('evine-don').addEventListener('change', function() { bitisDegisti('ev'); });
@@ -589,7 +591,7 @@ function filoyuYukle() {
         adi: t.adi, adres: t.adres, lat: t.lat, lon: t.lon,
         ag: t.agirlik, hc: t.hacim,
         termin: t.termin_tarihi, randevuBas: t.randevu_bas, randevuSon: t.randevu_son,
-        arac_id: t.arac_id
+        arac_id: t.arac_id, sira: t.sira
       };
     });
 
@@ -619,6 +621,13 @@ function filoyuYukle() {
       btn.onclick = function() { aracSec(parseInt(id)); };
       liste.appendChild(btn);
     });
+
+    // Filo/Plan'dan "Haritada Gör" ile gelindiyse o araci otomatik sec.
+    // Kucuk gecikme: harita container'i boyutlansin, yoksa fitBounds zoom'u bozulur.
+    var istenenArac = new URLSearchParams(location.search).get('arac');
+    if (istenenArac && filoVerisi.araclar[istenenArac]) {
+      aracSec(parseInt(istenenArac));
+    }
   });
 }
 
@@ -699,9 +708,89 @@ function aracSec(aracId) {
   });
 
   if (markerlar.length > 1) {
-    var bounds = L.latLngBounds(markerlar.map(function(m) { return m.getLatLng(); }));
-    map.fitBounds(bounds, {padding: [40, 40]});
+    haritayaSigdir(L.latLngBounds(markerlar.map(function(m) { return m.getLatLng(); })));
   }
+
+  // Rotalanmis araclar icin ucretsiz sira rotasini goster (API cagrisi YOK)
+  serbestRotaGoster(aracId);
+}
+
+// Harita container'i boyutlanana kadar fitBounds'u erteler (flex/gizli konteyner
+// ilk yuklemede 0 boyutlu olabilir -> zoom bozulur). Boyut gelince invalidateSize + fit.
+function haritayaSigdir(bounds, deneme) {
+  deneme = deneme || 0;
+  if (document.getElementById('map').clientHeight > 0) {
+    map.invalidateSize();
+    map.fitBounds(bounds);
+  } else if (deneme < 60) {
+    requestAnimationFrame(function() { haritayaSigdir(bounds, deneme + 1); });
+  }
+}
+
+function kusUcusuKm(a, b) {
+  var R = 6371, p1 = a[0] * Math.PI / 180, p2 = b[0] * Math.PI / 180;
+  var dp = (b[0] - a[0]) * Math.PI / 180, dl = (b[1] - a[1]) * Math.PI / 180;
+  var s = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+// Rotala'dan gelen sira ile UCRETSIZ rota: duz kesikli cizgi + Google Maps tarif
+// linki. API cagrisi yok. Hassas trafik rotasi icin kullanici "Google ile Optimize"ye basar.
+function serbestRotaGoster(aracId) {
+  var arac = filoVerisi.araclar[aracId];
+  var duraklar = arac.teslimatlar.map(function(tid) { return filoVerisi.teslimatlar[tid]; })
+    .filter(function(t) { return t && t.lat && t.lon && t.sira != null; })
+    .sort(function(a, b) { return a.sira - b.sira; });
+  if (!duraklar.length) return false;   // rotalanmamis arac
+
+  rotaCizgiler.forEach(function(c) { map.removeLayer(c); });
+  rotaCizgiler = [];
+  if (evCizgi) { map.removeLayer(evCizgi); evCizgi = null; }
+  if (evMarker) { map.removeLayer(evMarker); evMarker = null; }
+
+  var depoLat = parseFloat(document.getElementById('depo-lat').value);
+  var depoLon = parseFloat(document.getElementById('depo-lon').value);
+  var evineDon = document.getElementById('evine-don').checked && aktifEv;
+  var depoyaDon = document.getElementById('depoya-don').checked;
+
+  var noktalar = [[depoLat, depoLon]];
+  duraklar.forEach(function(t) { noktalar.push([t.lat, t.lon]); });
+  if (evineDon) { noktalar.push([aktifEv.lat, aktifEv.lon]); }
+  else if (depoyaDon) { noktalar.push([depoLat, depoLon]); }
+
+  var cizgi = L.polyline(noktalar, { color: '#4f9bff', weight: 4, opacity: 0.85, dashArray: '6, 6' }).addTo(map);
+  rotaCizgiler.push(cizgi);
+  if (evineDon) {
+    evMarker = L.circleMarker([aktifEv.lat, aktifEv.lon], {
+      radius: 7, fillColor: '#0891b2', color: '#fff', weight: 2, fillOpacity: 1
+    }).bindTooltip(aktifEv.ad + ' — ev', { permanent: true, direction: 'top', offset: [0, -8] }).addTo(map);
+  }
+
+  var km = 0;
+  for (var i = 1; i < noktalar.length; i++) km += kusUcusuKm(noktalar[i - 1], noktalar[i]);
+  document.getElementById('s-mesafe').textContent = '~' + (km * 1.35).toFixed(1) + ' km';
+  document.getElementById('s-sure').textContent = '—';
+  document.getElementById('s-teslimat').textContent = duraklar.length;
+  document.getElementById('s-kirilim').innerHTML =
+    'Ücretsiz sıra (Rotala) — trafik verisi yok. Hassas rota için <b>Google ile Optimize</b>.';
+  var html = '<div class="durak"><b>0.</b> Depo (kalkış)</div>';
+  duraklar.forEach(function(t, i) { html += '<div class="durak"><b>' + (i + 1) + '.</b> ' + t.adi + '</div>'; });
+  if (evineDon) html += '<div class="durak"><b>' + (duraklar.length + 1) + '.</b> ' + aktifEv.ad + ' — ev</div>';
+  else if (depoyaDon) html += '<div class="durak"><b>' + (duraklar.length + 1) + '.</b> Depo (dönüş)</div>';
+  document.getElementById('rota-listesi').innerHTML = html;
+  document.getElementById('sonuc-panel').classList.add('aktif');
+
+  var depoStr = depoLat + ',' + depoLon;
+  var wp = duraklar.map(function(t) { return t.lat + ',' + t.lon; });
+  var dest;
+  if (evineDon) { dest = aktifEv.lat + ',' + aktifEv.lon; }
+  else if (depoyaDon) { dest = depoStr; }
+  else { dest = wp[wp.length - 1]; wp = wp.slice(0, -1); }
+  window._mapsUrl = 'https://www.google.com/maps/dir/' + depoStr + '/' + wp.join('/') + '/' + dest;
+  document.getElementById('maps-butonlar').style.display = 'flex';
+
+  haritayaSigdir(cizgi.getBounds().pad(0.2));
+  return true;
 }
 
 filoyuYukle();

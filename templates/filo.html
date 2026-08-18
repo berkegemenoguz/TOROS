@@ -211,6 +211,12 @@
     margin-right: 6px;
   }
   .btn-tamamla:hover { border-color: var(--ok); }
+  .btn-harita {
+    float: right; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent);
+    padding: 3px 10px; font-size: 11px; width: auto; cursor: pointer; border-radius: var(--radius);
+    margin-right: 6px; text-decoration: none; display: inline-block;
+  }
+  .btn-harita:hover { background: var(--accent); color: #fff; }
 
   /* --- Yazdirma alani: ekranda gizli, sadece baskida gorunur --- */
   #yazdir-alani { display: none; }
@@ -539,6 +545,7 @@ function aracDetayCiz() {
     + (a.rotaKm != null && a.teslimatlar.length
         ? '  <button class="btn-yazdir" onclick="aracYazdir(' + id + ')">Yazdır</button>'
           + '  <button class="btn-tamamla" onclick="gunuTamamla(' + id + ')" title="Rotayı tamamla, aracı serbest bırak">Günü Tamamla</button>'
+          + '  <a class="btn-harita" href="/?arac=' + id + '" title="Rotayı haritada göster">Haritada Gör</a>'
         : (a.teslimatlar.length
             ? '  <button class="btn-yazdir" disabled title="Önce günü Rotala ile rota oluşturun">Yazdır</button>'
             : ''))
