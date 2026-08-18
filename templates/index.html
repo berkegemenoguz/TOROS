@@ -188,14 +188,11 @@
         Depoya dönüş rotası ekle
       </label>
     </div>
-    <div class="form-grup" style="margin-top:8px;">
+    <div class="form-grup" id="evine-don-satir" style="margin-top:8px;display:none;">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
         <input type="checkbox" id="evine-don" style="width:auto;accent-color:#0891b2;">
-        Şoförün evine dönüş çizgisi
+        Şoförün evine dönüş <span id="evine-don-ad" style="color:#0891b2;font-weight:600;"></span>
       </label>
-      <select id="sofor-sec" style="margin-top:6px;display:none;">
-        <option value="">— şoför seçin —</option>
-      </select>
     </div>
   </div>
 
@@ -252,8 +249,9 @@ var markerlar = [];
 var rotaCizgiler = [];
 var sayac = 0;
 
-// Esnaf acik rota gostergesi (istemci tarafi, API cagrisi yok)
-var soforlar = {};        // id -> {ad, ev_lat, ev_lon}
+// Esnaf acik rota (istemci tarafi cizim + ucretsiz Google Maps tarif linki)
+var soforlar = {};             // sofor_id -> {ad, ev_lat, ev_lon}
+var aktifEv = null;            // secili aracin soforunun evi {ad, lat, lon} | null
 var evCizgi = null, evMarker = null;
 var sonVeri = null, sonSonuc = null;
 
@@ -262,49 +260,26 @@ now.setMinutes(now.getMinutes() + 30);
 var iso = now.toISOString().slice(0, 16);
 document.getElementById('kalkis-zamani').value = iso;
 
-// Ev konumu girilmis soforleri menuye doldur
+// Ev konumu girilmis soforleri sofor_id ile sakla (arac secilince aranir)
 fetch('/api/soforler')
   .then(function(r) { return r.json(); })
   .then(function(liste) {
-    var sec = document.getElementById('sofor-sec');
     liste.forEach(function(s) {
-      if (s.ev_lat == null || s.ev_lon == null) return;
-      soforlar[s.id] = s;
-      var o = document.createElement('option');
-      o.value = s.id;
-      o.textContent = s.ad;
-      sec.appendChild(o);
+      if (s.ev_lat != null && s.ev_lon != null) soforlar[s.id] = s;
     });
   });
 
-document.getElementById('evine-don').addEventListener('change', function() {
-  document.getElementById('sofor-sec').style.display = this.checked ? 'block' : 'none';
-  evineDonusCiz();
-});
-document.getElementById('sofor-sec').addEventListener('change', evineDonusCiz);
-
-// Son duraktan secili soforun evine kesikli cizgi cizer; toggle/secim degisince
-// yeniden hesaplamaya (ucretli API) gerek kalmadan sadece cizgiyi gunceller.
-function evineDonusCiz() {
-  if (evCizgi) { map.removeLayer(evCizgi); evCizgi = null; }
-  if (evMarker) { map.removeLayer(evMarker); evMarker = null; }
-
-  var acik = document.getElementById('evine-don').checked;
-  var sid = document.getElementById('sofor-sec').value;
-  if (!acik || !sid || !soforlar[sid] || !sonVeri || !sonSonuc) return;
-
-  var sofor = soforlar[sid];
-  var sonIdx = sonSonuc.optimal_sira[sonSonuc.optimal_sira.length - 1];
-  var sonDurak = sonVeri.teslimatlar[sonIdx];
-  var ev = [sofor.ev_lat, sofor.ev_lon];
-
-  evCizgi = L.polyline([[sonDurak.lat, sonDurak.lon], ev], {
-    color: '#0891b2', weight: 4, opacity: 0.9, dashArray: '4, 8',
-  }).addTo(map);
-  evMarker = L.circleMarker(ev, {
-    radius: 7, fillColor: '#0891b2', color: '#fff', weight: 2, fillOpacity: 1,
-  }).bindTooltip(sofor.ad + ' — ev', {permanent: true, direction: 'top', offset: [0, -8]}).addTo(map);
+// Depoya donus / eve donus tek bir "bitis" secimidir - biri isaretlenince digeri
+// kalkar. Toggle SADECE cizimi + tarif linkini gunceller, tekrar hesaplamaz.
+function bitisDegisti(kaynak) {
+  var dep = document.getElementById('depoya-don');
+  var ev = document.getElementById('evine-don');
+  if (kaynak === 'ev' && ev.checked) dep.checked = false;
+  if (kaynak === 'depo' && dep.checked) ev.checked = false;
+  if (sonSonuc) { rotayiCiz(); linkVeListeGuncelle(); }
 }
+document.getElementById('depoya-don').addEventListener('change', function() { bitisDegisti('depo'); });
+document.getElementById('evine-don').addEventListener('change', function() { bitisDegisti('ev'); });
 
 function adresAra(inputEl, latEl, lonEl, isimEl) {
   var adres = inputEl.value;
@@ -400,6 +375,9 @@ function hesapla() {
     alert('En az 2 teslimat noktası ekleyin.');
     return;
   }
+  // Donus bacagini HER ZAMAN hesapla; checkbox'lar sadece gosterimi toggle'lar,
+  // boylece depo/ev secimi tekrar ucretli API cagirmadan aninda degisir.
+  veri.depoya_don = true;
 
   document.getElementById('btn-hesapla').disabled = true;
   document.getElementById('yukleniyor').classList.add('aktif');
@@ -448,10 +426,21 @@ function decodePolyline(encoded) {
 function haritaCiz(veri, sonuc) {
   sonVeri = veri;
   sonSonuc = sonuc;
+  rotayiCiz();
+}
+
+// Saklanan sonuca + bitis secimine (depo/ev) gore haritayi yeniden cizer.
+// API cagrisi YOK - checkbox toggle'lari bunu cagirir.
+function rotayiCiz() {
+  if (!sonVeri || !sonSonuc) return;
+  var veri = sonVeri, sonuc = sonSonuc;
+
   markerlar.forEach(function(m) { map.removeLayer(m); });
   markerlar = [];
   rotaCizgiler.forEach(function(c) { map.removeLayer(c); });
   rotaCizgiler = [];
+  if (evCizgi) { map.removeLayer(evCizgi); evCizgi = null; }
+  if (evMarker) { map.removeLayer(evMarker); evMarker = null; }
 
   var depoMarker = L.circleMarker([veri.depo.lat, veri.depo.lon], {
     radius: 8, fillColor: '#00a862', color: '#fff', weight: 2, fillOpacity: 1
@@ -469,24 +458,38 @@ function haritaCiz(veri, sonuc) {
   });
 
   var depoyaDon = document.getElementById('depoya-don').checked;
+  var evineDon = document.getElementById('evine-don').checked && aktifEv;
   var bounds = L.latLngBounds();
 
+  // Son bacak = depoya donus (her zaman hesaplanir). Sadece depoya-don isikken ciz.
+  var sonBacakIdx = sonuc.bacak_polylines.length - 1;
   sonuc.bacak_polylines.forEach(function(noktalar, i) {
-    var sonBacak = depoyaDon && i === sonuc.bacak_polylines.length - 1;
+    var donusBacagi = i === sonBacakIdx;
+    if (donusBacagi && !depoyaDon) return;   // donus istenmiyorsa atla
     var cizgi = L.polyline(noktalar, {
-      color: sonBacak ? '#9333ea' : '#1a56db',
-      weight: 5,
-      opacity: 0.9,
-      dashArray: sonBacak ? '10, 8' : null,
+      color: donusBacagi ? '#9333ea' : '#1a56db',
+      weight: 5, opacity: 0.9,
+      dashArray: donusBacagi ? '10, 8' : null,
     }).addTo(map);
     rotaCizgiler.push(cizgi);
     bounds.extend(cizgi.getBounds());
   });
 
-  evineDonusCiz();
-  if (evCizgi) bounds.extend(evCizgi.getBounds());
+  // Eve donus: son duraktan soforun evine kesikli cizgi + ev isareti
+  if (evineDon) {
+    var sonIdx = sonuc.optimal_sira[sonuc.optimal_sira.length - 1];
+    var sonDurak = veri.teslimatlar[sonIdx];
+    var ev = [aktifEv.lat, aktifEv.lon];
+    evCizgi = L.polyline([[sonDurak.lat, sonDurak.lon], ev], {
+      color: '#0891b2', weight: 4, opacity: 0.9, dashArray: '4, 8',
+    }).addTo(map);
+    evMarker = L.circleMarker(ev, {
+      radius: 7, fillColor: '#0891b2', color: '#fff', weight: 2, fillOpacity: 1,
+    }).bindTooltip(aktifEv.ad + ' — ev', {permanent: true, direction: 'top', offset: [0, -8]}).addTo(map);
+    bounds.extend(evCizgi.getBounds());
+  }
 
-  map.fitBounds(bounds, {padding: [40, 40]});
+  if (bounds.isValid()) map.fitBounds(bounds, {padding: [40, 40]});
 }
 
 function sureBicimle(dk) {
@@ -511,31 +514,49 @@ function sonucGoster(sonuc) {
   document.getElementById('s-kirilim').innerHTML = kirilim;
   document.getElementById('s-teslimat').textContent = sonuc.isimler.length;
 
+  linkVeListeGuncelle();
+}
+
+// Rota listesi + Google Maps tarif linkini bitis secimine gore kurar.
+// Bitis onceligi: sofor evi > depo donusu > son teslimat. Eve donus SECILIYSE
+// ev, tarif linkinde son varis noktasidir -> surucu telefonda yoldan tarif alir.
+function linkVeListeGuncelle() {
+  if (!sonVeri || !sonSonuc) return;
+  var veri = sonVeri, sonuc = sonSonuc;
   var depoyaDon = document.getElementById('depoya-don').checked;
+  var evineDon = document.getElementById('evine-don').checked && aktifEv;
+
   var html = '<div class="durak"><b>0.</b> Depo (kalkış)</div>';
   sonuc.isimler.forEach(function(isim, i) {
     var varis = sonuc.varis_zamanlari[i];
     html += '<div class="durak"><b>' + (i+1) + '.</b> ' + isim + ' <span class="saat">' + varis + '</span> <span style="color:#76b5c5;font-size:11px;">(+15dk teslimat)</span></div>';
   });
-  if (depoyaDon) {
+  if (evineDon) {
+    html += '<div class="durak"><b>' + (sonuc.isimler.length + 1) + '.</b> ' + aktifEv.ad
+          + ' — ev <span style="color:#0891b2;font-size:11px;">(şoför evi)</span></div>';
+  } else if (depoyaDon) {
     var donus = sonuc.varis_zamanlari[sonuc.varis_zamanlari.length - 1];
     html += '<div class="durak"><b>' + (sonuc.isimler.length + 1) + '.</b> Depo (dönüş) <span class="saat">' + donus + '</span></div>';
   }
-
   document.getElementById('rota-listesi').innerHTML = html;
   document.getElementById('sonuc-panel').classList.add('aktif');
 
-  var veri = veriTopla();
   var depoStr = veri.depo.lat + ',' + veri.depo.lon;
   var waypoints = sonuc.optimal_sira.map(function(idx) {
     var t = veri.teslimatlar[idx];
     return t.lat + ',' + t.lon;
   });
-
-  var origin = depoStr;
-  var destination = depoyaDon ? depoStr : waypoints[waypoints.length - 1];
-  var wp = depoyaDon ? waypoints : waypoints.slice(0, -1);
-
+  var origin = depoStr, destination, wp;
+  if (evineDon) {
+    destination = aktifEv.lat + ',' + aktifEv.lon;   // ev = son varis noktasi
+    wp = waypoints;
+  } else if (depoyaDon) {
+    destination = depoStr;
+    wp = waypoints;
+  } else {
+    destination = waypoints[waypoints.length - 1];
+    wp = waypoints.slice(0, -1);
+  }
   var mapsUrl = 'https://www.google.com/maps/dir/' + origin + '/' + wp.join('/') + '/' + destination;
   window._mapsUrl = mapsUrl;
   document.getElementById('maps-butonlar').style.display = 'flex';
@@ -590,7 +611,7 @@ function filoyuYukle() {
       });
       filoVerisi.araclar[a.id] = {
         adi: a.adi, tip: a.tip, maxAg: a.max_agirlik, maxHc: a.max_hacim,
-        teslimatlar: teslimatlari
+        teslimatlar: teslimatlari, soforId: a.sofor_id
       };
     });
 
@@ -623,14 +644,31 @@ function aracSec(aracId) {
   document.getElementById('filo-btn-' + aracId).classList.add('secili');
   seciliArac = aracId;
 
+  // Secili aracin soforunun evi varsa "eve donus" secenegini goster, yoksa gizle
+  aktifEv = null;
+  var sofor = arac.soforId ? soforlar[arac.soforId] : null;
+  if (sofor) {
+    aktifEv = { ad: sofor.ad, lat: sofor.ev_lat, lon: sofor.ev_lon };
+    document.getElementById('evine-don-ad').textContent = '— ' + sofor.ad;
+    document.getElementById('evine-don-satir').style.display = 'block';
+  } else {
+    document.getElementById('evine-don').checked = false;
+    document.getElementById('evine-don-satir').style.display = 'none';
+  }
+
   document.getElementById('teslimat-alani').style.display = 'block';
   document.getElementById('teslimat-listesi').innerHTML = '';
   sayac = 0;
 
+  // onceki hesap sonucu gecersiz; toggle'lar bayat veri cizmesin
+  sonVeri = null;
+  sonSonuc = null;
   markerlar.forEach(function(m) { map.removeLayer(m); });
   markerlar = [];
   rotaCizgiler.forEach(function(c) { map.removeLayer(c); });
   rotaCizgiler = [];
+  if (evCizgi) { map.removeLayer(evCizgi); evCizgi = null; }
+  if (evMarker) { map.removeLayer(evMarker); evMarker = null; }
   document.getElementById('sonuc-panel').classList.remove('aktif');
   document.getElementById('maps-butonlar').style.display = 'none';
 
