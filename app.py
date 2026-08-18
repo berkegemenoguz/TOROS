@@ -187,8 +187,15 @@ def teslimat_listele():
         "termin_tarihi": str(r.termin_tarihi) if r.termin_tarihi else "",
         "randevu_bas": str(r.randevu_bas)[:5] if r.randevu_bas else "",
         "randevu_son": str(r.randevu_son)[:5] if r.randevu_son else "",
-        "arac_id": r.arac_id, "durum": r.durum, "sira": r.sira
+        "arac_id": r.arac_id, "durum": r.durum, "sira": r.sira,
+        "bolge": bolge_bul(r.ilce) or ""
     } for r in rows])
+
+
+@app.route("/api/bolgeler", methods=["GET"])
+def bolge_listele():
+    # Araclara bolge atarken arayuzun kullanacagi kanonik liste
+    return jsonify(list(BOLGELER.keys()))
 
 
 def adres_geocode(adres):
@@ -406,11 +413,43 @@ ANADOLU_ILCELERI = {
     "pendik", "sancaktepe", "sultanbeyli", "sile", "tuzla", "umraniye", "uskudar",
 }
 
+# Bolge -> o bolgeye ait ilceler (sadelestirilmis). Her araca bir bolge atanir;
+# teslimatlar ilcesine gore ilgili bolgenin havuzunda birikir. 18 bolge = 18 arac.
+BOLGELER = {
+    "Silivri-Çatalca": {"silivri", "catalca"},
+    "Arnavutköy-Başakşehir": {"arnavutkoy", "basaksehir"},
+    "Büyükçekmece-Beylikdüzü": {"buyukcekmece", "beylikduzu"},
+    "Esenyurt": {"esenyurt"},
+    "Avcılar-Küçükçekmece": {"avcilar", "kucukcekmece"},
+    "Bakırköy-Bahçelievler": {"bakirkoy", "bahcelievler"},
+    "Bağcılar-Güngören": {"bagcilar", "gungoren"},
+    "Zeytinburnu-Fatih": {"zeytinburnu", "fatih"},
+    "Esenler-Bayrampaşa-GOP": {"esenler", "bayrampasa", "gaziosmanpasa"},
+    "Sultangazi-Eyüpsultan": {"sultangazi", "eyupsultan", "eyup"},
+    "Beyoğlu-Şişli-Kağıthane": {"beyoglu", "sisli", "kagithane"},
+    "Beşiktaş-Sarıyer": {"besiktas", "sariyer"},
+    "Üsküdar-Kadıköy": {"uskudar", "kadikoy"},
+    "Ümraniye-Ataşehir": {"umraniye", "atasehir"},
+    "Beykoz-Çekmeköy-Şile": {"beykoz", "cekmekoy", "sile"},
+    "Maltepe-Kartal": {"maltepe", "kartal"},
+    "Sancaktepe-Sultanbeyli": {"sancaktepe", "sultanbeyli"},
+    "Pendik-Tuzla": {"pendik", "tuzla"},
+}
+
 _TR_TABLO = str.maketrans("çğıöşüÇĞİÖŞÜ", "cgiosucgiosu")
 
 
 def sadelestir(s):
     return (s or "").translate(_TR_TABLO).lower().strip()
+
+
+# ilce -> bolge etiketi ters aramasi (sadelestirilmis anahtar)
+_ILCE_BOLGE = {ilce: ad for ad, ilceler in BOLGELER.items() for ilce in ilceler}
+
+
+def bolge_bul(ilce):
+    """Ilce adindan bolge etiketini dondurur; eslesme yoksa None."""
+    return _ILCE_BOLGE.get(sadelestir(ilce))
 
 
 @app.route("/api/dagit", methods=["POST"])
