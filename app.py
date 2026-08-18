@@ -198,6 +198,119 @@ def bolge_listele():
     return jsonify(list(BOLGELER.keys()))
 
 
+def bolge_havuzu(session):
+    """Bekleyen (henuz araca atanmamis) teslimatlari bolgesine gore toplar ve
+    her bolge icin doluluk / en eski yuk yasi / termin durumu / hazir-mi sonucunu
+    hesaplar. SALT OKUNUR - hicbir sey yazmaz, sevkiyati degistirmez.
+
+    Gun yasi teslimatin olusturma_zamani'ndan turetilir; sayac ARACA degil,
+    bolgedeki EN ESKI YUKE baglidir (yeni teslimat sayaci sifirlamaz)."""
+    bugun = datetime.now().date()
+
+    # Bolge -> o bolgeye bakan aktif araclarin toplam kapasitesi (1 bolge = 1 arac
+    # modeli, ama birden fazla olursa kapasiteler toplanir)
+    arac_rows = session.execute(text(
+        "SELECT id, adi, max_agirlik, max_hacim, bolge FROM araclar "
+        "WHERE aktif = TRUE AND bolge IS NOT NULL"
+    )).fetchall()
+    bolge_arac = {}
+    for a in arac_rows:
+        b = bolge_arac.setdefault(a.bolge, {
+            "arac_idler": [], "arac_adlari": [], "cap_ag": 0.0, "cap_hc": 0.0})
+        b["arac_idler"].append(a.id)
+        b["arac_adlari"].append(a.adi)
+        b["cap_ag"] += float(a.max_agirlik)
+        b["cap_hc"] += float(a.max_hacim)
+
+    # Bekleyen teslimatlar (araca atanmamis, konumu belli)
+    tesler = session.execute(text("""
+        SELECT t.id, t.agirlik, t.hacim, t.termin_tarihi, t.olusturma_zamani, a.ilce
+        FROM teslimatlar t
+        LEFT JOIN adresler a ON a.id = t.adres_id
+        WHERE t.arac_id IS NULL AND t.lat IS NOT NULL AND t.lon IS NOT NULL
+    """)).fetchall()
+
+    havuz = {}
+    bolgesiz = {"teslimat_sayisi": 0, "agirlik": 0.0, "hacim": 0.0}
+    for t in tesler:
+        bolge = bolge_bul(t.ilce)
+        if not bolge:
+            bolgesiz["teslimat_sayisi"] += 1
+            bolgesiz["agirlik"] += float(t.agirlik or 0)
+            bolgesiz["hacim"] += float(t.hacim or 0)
+            continue
+        h = havuz.setdefault(bolge, {
+            "teslimat_sayisi": 0, "agirlik": 0.0, "hacim": 0.0,
+            "en_eski": None, "en_erken_termin": None})
+        h["teslimat_sayisi"] += 1
+        h["agirlik"] += float(t.agirlik or 0)
+        h["hacim"] += float(t.hacim or 0)
+        if t.olusturma_zamani and (h["en_eski"] is None or t.olusturma_zamani < h["en_eski"]):
+            h["en_eski"] = t.olusturma_zamani
+        if t.termin_tarihi and (h["en_erken_termin"] is None or t.termin_tarihi < h["en_erken_termin"]):
+            h["en_erken_termin"] = t.termin_tarihi
+
+    sonuc = []
+    for bolge, h in havuz.items():
+        arac = bolge_arac.get(bolge)
+        cap_ag = arac["cap_ag"] if arac else 0.0
+        cap_hc = arac["cap_hc"] if arac else 0.0
+        doluluk = round(max(
+            100 * h["agirlik"] / cap_ag if cap_ag else 0.0,
+            100 * h["hacim"] / cap_hc if cap_hc else 0.0), 1) if arac else None
+
+        en_eski_gun = (bugun - h["en_eski"].date()).days if h["en_eski"] else 0
+
+        termin_durumu = "yok"
+        if h["en_erken_termin"]:
+            if h["en_erken_termin"] < bugun:
+                termin_durumu = "gecmis"
+            elif h["en_erken_termin"] == bugun:
+                termin_durumu = "bugun"
+
+        # Tetikleyici degerlendirmesi (sebep onceligi: termin > 3 gun > doluluk)
+        sebep = None
+        if termin_durumu in ("bugun", "gecmis"):
+            sebep = f"termin {termin_durumu}"
+        elif en_eski_gun >= BEKLEME_TAVANI_GUN:
+            sebep = f"{en_eski_gun} gun bekledi"
+        elif doluluk is not None and doluluk >= DOLULUK_ESIK:
+            sebep = f"doluluk %{doluluk:.0f}"
+        hazir = sebep is not None and arac is not None
+
+        sonuc.append({
+            "bolge": bolge,
+            "arac_idler": arac["arac_idler"] if arac else [],
+            "arac_adlari": arac["arac_adlari"] if arac else [],
+            "teslimat_sayisi": h["teslimat_sayisi"],
+            "agirlik": round(h["agirlik"], 1),
+            "hacim": round(h["hacim"], 2),
+            "max_agirlik": round(cap_ag, 1) if arac else None,
+            "max_hacim": round(cap_hc, 2) if arac else None,
+            "doluluk": doluluk,
+            "en_eski_gun": en_eski_gun,
+            "termin_durumu": termin_durumu,
+            "hazir": hazir,
+            "sebep": sebep,
+        })
+
+    sonuc.sort(key=lambda s: (not s["hazir"], -s["teslimat_sayisi"]))
+    return sonuc, bolgesiz, bugun
+
+
+@app.route("/api/havuz", methods=["GET"])
+def havuz_durum():
+    session = Session()
+    sonuc, bolgesiz, bugun = bolge_havuzu(session)
+    session.close()
+    return jsonify({
+        "bugun": str(bugun),
+        "esik": {"doluluk": DOLULUK_ESIK, "bekleme_gun": BEKLEME_TAVANI_GUN},
+        "bolgeler": sonuc,
+        "bolgesiz": bolgesiz,
+    })
+
+
 def adres_geocode(adres):
     resp = requests.get(GEOCODE_URL, params={
         "address": adres, "key": API_KEY, "region": "tr", "language": "tr",
@@ -407,6 +520,14 @@ HIZ_KMH = 25.0         # Istanbul ici ortalama hiz
 YOL_SAPMA = 1.35       # kus ucusu mesafe -> gercek yol carpani
 KOPRU_KM = 12.0        # Bogaz gecisi cezasi
 HEDEF_DOLULUK = (70.0, 82.0)   # filo boyutlandirma uyarisi icin bant
+
+# --- Doluluk-esikli sevkiyat tetikleyicileri -------------------------------
+# Bir bolgenin araci ancak su kosullardan biri saglaninca yola cikar:
+#   1) doluluk >= DOLULUK_ESIK (ekonomik yumusak hedef)
+#   2) bekleyen bir yukun termini bugun/gecmis (sert kisit, esigi ezer)
+#   3) en eski yukun yasi BEKLEME_TAVANI_GUN'u doldurmus (sonsuz beklemeyi keser)
+DOLULUK_ESIK = 80.0
+BEKLEME_TAVANI_GUN = 3
 
 ANADOLU_ILCELERI = {
     "adalar", "atasehir", "beykoz", "cekmekoy", "kadikoy", "kartal", "maltepe",
