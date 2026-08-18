@@ -5,135 +5,87 @@
 <title>TOROS - Teslimat Optimizasyonu</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="/static/toros.css">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: #f4f4f5; color: #1a1a1a; display: flex; flex-direction: column; height: 100vh;
-  }
+  body { height: 100vh; }
   .alt-govde { display: flex; flex: 1; min-height: 0; }
-
-  .ust-bar {
-    background: #fff; padding: 12px 20px; border-bottom: 1px solid #e4e4e7;
-    display: flex; align-items: center; gap: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 500; flex-shrink: 0;
-  }
-  .ust-bar h1 { font-size: 22px; font-weight: 800; color: #c31f3f; letter-spacing: 1px; line-height: 1.1; }
-  .sekmeler { display: flex; gap: 4px; margin-left: 12px; }
-  .sekmeler a {
-    color: #6b7280; font-size: 13px; text-decoration: none; font-weight: 600;
-    padding: 8px 16px; border-radius: 4px;
-  }
-  .sekmeler a:hover { color: #c31f3f; background: #faf3f4; }
-  .sekmeler a.aktif { color: #c31f3f; background: #fbeaec; }
-
-  #splash {
-    position: fixed; inset: 0; background: #c31f3f; z-index: 9999;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; transition: opacity 0.5s;
-  }
-  #splash.kapan { opacity: 0; pointer-events: none; }
-  #splash .splash-firma { max-width: 320px; margin-bottom: 22px; }
-  #splash .splash-logo { font-size: 44px; font-weight: 800; color: #fff; letter-spacing: 2px; }
-  #splash .splash-alt { font-size: 11px; letter-spacing: 6px; color: rgba(255,255,255,0.75); text-transform: uppercase; }
+  .ust-bar { flex-shrink: 0; }
 
   .panel {
-    width: 400px; background: #fff; overflow-y: auto; padding: 24px 20px;
-    border-right: 1px solid #e4e4e7; flex-shrink: 0;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.05); z-index: 500;
+    width: 400px; background: var(--surface); overflow-y: auto; padding: 24px 20px;
+    border-right: 1px solid var(--border); flex-shrink: 0; z-index: 500;
   }
-  .panel h1 { font-size: 24px; font-weight: 800; color: #c31f3f; letter-spacing: 1px; }
+  .panel h1 { font-size: 24px; font-weight: 800; color: var(--brand); letter-spacing: 1px; }
   .panel .alt-baslik {
-    font-size: 10px; letter-spacing: 3px; color: #9ca3af;
+    font-size: 10px; letter-spacing: 3px; color: var(--text-muted);
     text-transform: uppercase; margin: 2px 0 12px;
   }
-  .filo-link { color: #c31f3f; font-size: 12px; text-decoration: none; display: block; margin-bottom: 10px; font-weight: 600; }
+  .filo-link { color: var(--brand); font-size: 12px; text-decoration: none; display: block; margin-bottom: 10px; font-weight: 600; }
   .filo-link:hover { text-decoration: underline; }
   .panel h2 {
     font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
-    color: #6b7280; margin: 18px 0 8px; font-weight: 600;
+    color: var(--text-2); margin: 18px 0 8px; font-weight: 600;
   }
 
   .form-grup { margin-bottom: 10px; }
-  .form-grup label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 3px; }
-  .form-grup input, .form-grup select {
-    width: 100%; padding: 8px 10px; background: #fff; border: 1px solid #d4d4d8;
-    color: #1a1a1a; border-radius: 2px; font-size: 13px;
-    -webkit-appearance: none; appearance: none;
-  }
-  .form-grup select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
-  }
-  .form-grup input:focus { outline: none; border-color: #c31f3f; }
-  /* Checkbox'lar genel input stilinden (appearance:none, border, padding) muaf;
-     yoksa isaretli olsa bile bos kutu gorunur. */
-  .form-grup input[type="checkbox"] {
-    -webkit-appearance: auto; appearance: auto;
-    width: auto; padding: 0; border: 0; border-radius: 0;
-  }
 
-  .depo-alan { background: #fff; border: 1px solid #ececee; padding: 14px; border-radius: 2px; margin-bottom: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .depo-alan { background: var(--surface-2); border: 1px solid var(--border); padding: 14px; border-radius: var(--radius); margin-bottom: 15px; }
   .depo-alan .form-grup { margin-bottom: 6px; }
 
   .teslimat-listesi { margin-bottom: 15px; }
   .teslimat-karti {
-    background: #fff; border: 1px solid #ececee; padding: 6px 10px; border-radius: 2px;
+    background: var(--surface-2); border: 1px solid var(--border); padding: 6px 10px; border-radius: var(--radius);
     margin-bottom: 4px; position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
   .teslimat-karti .sil-btn {
     background: none; border: none;
-    color: #c31f3f; cursor: pointer; font-size: 16px; flex-shrink: 0;
+    color: var(--brand); cursor: pointer; font-size: 16px; flex-shrink: 0;
   }
   .teslimat-karti .form-grup { margin-bottom: 0; }
   .teslimat-karti .form-grup label { font-size: 10px; margin-bottom: 1px; }
-  .teslimat-karti .form-grup input { padding: 3px 6px; font-size: 12px; background: #fff; }
+  .teslimat-karti .form-grup input { padding: 3px 6px; font-size: 12px; }
 
-  .btn {
-    padding: 10px 16px; border: none; border-radius: 2px; cursor: pointer;
-    font-size: 13px; font-weight: bold;
-  }
   .btn-ara {
-    background: #fff; color: #374151; border: 1px solid #d4d4d8; padding: 8px 12px;
-    border-radius: 2px; cursor: pointer; font-size: 12px; white-space: nowrap;
+    background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong); padding: 8px 12px;
+    border-radius: var(--radius); cursor: pointer; font-size: 12px; white-space: nowrap;
   }
-  .btn-ara:hover { border-color: #c31f3f; color: #c31f3f; }
+  .btn-ara:hover { border-color: var(--brand); color: var(--brand); }
   .adres-satir { display: flex; gap: 6px; }
   .adres-satir input { flex: 1; }
   .satir { display: flex; gap: 6px; }
-  .btn-hesapla { background: #c31f3f; color: #fff; width: 100%; font-size: 15px; padding: 12px; box-shadow: 0 2px 6px rgba(195,31,63,0.3); }
-  .btn-hesapla:hover { background: #a51a35; }
-  .btn-hesapla:disabled { background: #d4d4d8; cursor: not-allowed; }
+  .btn-hesapla {
+    background: var(--brand); color: #fff; width: 100%; font-size: 15px; padding: 12px;
+    border: none; border-radius: var(--radius); cursor: pointer; font-weight: bold;
+  }
+  .btn-hesapla:hover { background: var(--brand-hover); }
+  .btn-hesapla:disabled { background: var(--surface-3); color: var(--text-muted); cursor: not-allowed; }
 
-  #map { flex: 1; }
+  #map { flex: 1; background: var(--bg); }
 
   .sonuc-panel {
-    display: none; background: #fff; padding: 15px; border-radius: 2px;
-    margin-top: 15px; border: 1px solid #ececee; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: none; background: var(--surface-2); padding: 15px; border-radius: var(--radius);
+    margin-top: 15px; border: 1px solid var(--border);
   }
   .sonuc-panel.aktif { display: block; }
-  .sonuc-baslik { color: #c31f3f; font-size: 14px; font-weight: bold; margin-bottom: 10px; }
+  .sonuc-baslik { color: var(--brand); font-size: 14px; font-weight: bold; margin-bottom: 10px; }
   .sonuc-ozet { display: flex; gap: 10px; margin-bottom: 12px; }
   .sonuc-kutu {
-    flex: 1; text-align: center; background: #fafafa; border: 1px solid #ececee; padding: 8px; border-radius: 2px;
+    flex: 1; text-align: center; background: var(--surface); border: 1px solid var(--border); padding: 8px; border-radius: var(--radius);
   }
-  .sonuc-kutu .deger { font-size: 16px; font-weight: bold; color: #c31f3f; }
-  .sonuc-kutu .etiket { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-  .sure-kirilim { font-size: 11px; color: #6b7280; margin-bottom: 12px; text-align: center; }
-  .sure-kirilim .bekleme-uyari { color: #c31f3f; font-weight: bold; }
+  .sonuc-kutu .deger { font-size: 16px; font-weight: bold; color: var(--brand); }
+  .sonuc-kutu .etiket { font-size: 10px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .sure-kirilim { font-size: 11px; color: var(--text-2); margin-bottom: 12px; text-align: center; }
+  .sure-kirilim .bekleme-uyari { color: var(--brand); font-weight: bold; }
   .rota-listesi { font-size: 12px; line-height: 22px; }
-  .rota-listesi .durak { padding: 3px 0; border-bottom: 1px solid #f0f0f1; }
-  .rota-listesi .saat { color: #c31f3f; font-weight: bold; }
+  .rota-listesi .durak { padding: 3px 0; border-bottom: 1px solid var(--border); }
+  .rota-listesi .saat { color: var(--brand); font-weight: bold; }
 
-  .yukleniyor {
-    display: none; text-align: center; padding: 20px; color: #6b7280;
-  }
+  .yukleniyor { display: none; text-align: center; padding: 20px; color: var(--text-2); }
   .yukleniyor.aktif { display: block; }
 
   .btn-maps {
     display: none; width: 100%; padding: 10px; margin-top: 10px; border: none;
-    border-radius: 2px; background: #1a73e8; color: #fff; font-size: 13px;
+    border-radius: var(--radius); background: #1a73e8; color: #fff; font-size: 13px;
     font-weight: bold; cursor: pointer; text-align: center;
   }
   .btn-maps.aktif { display: block; }
@@ -141,15 +93,14 @@
 
   .filo-arac-btn {
     display: block; width: 100%; padding: 10px 12px; margin-bottom: 6px;
-    background: #fff; border: 1.5px solid #e4e4e7; border-radius: 2px;
-    color: #1a1a1a; text-align: left; cursor: pointer; font-size: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    background: var(--surface-2); border: 1.5px solid var(--border); border-radius: var(--radius);
+    color: var(--text); text-align: left; cursor: pointer; font-size: 12px;
   }
-  .filo-arac-btn:hover { border-color: #c31f3f; }
-  .filo-arac-btn.secili { border-color: #c31f3f; background: #fdf1f3; }
-  .filo-arac-btn .fa-tip { color: #9ca3af; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .filo-arac-btn .fa-detay { color: #6b7280; font-size: 10px; margin-top: 2px; }
-  .filo-geocode-durum { font-size: 11px; color: #6b7280; margin-bottom: 8px; }
+  .filo-arac-btn:hover { border-color: var(--brand); }
+  .filo-arac-btn.secili { border-color: var(--brand); background: var(--brand-bg); }
+  .filo-arac-btn .fa-tip { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filo-arac-btn .fa-detay { color: var(--text-2); font-size: 10px; margin-top: 2px; }
+  .filo-geocode-durum { font-size: 11px; color: var(--text-2); margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -246,7 +197,7 @@
 
 <script>
 var map = L.map('map', {zoomSnap: 0.5, zoomDelta: 0.5, wheelDebounceTime: 40, wheelPxPerZoomLevel: 120}).setView([40.99, 28.84], 13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; OSM &copy; CARTO', maxZoom: 19,
 }).addTo(map);
 

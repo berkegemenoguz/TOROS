@@ -3,150 +3,99 @@
 <head>
 <meta charset="utf-8">
 <title>TOROS - Filo Yönetimi</title>
+<link rel="stylesheet" href="/static/toros.css">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: #f4f4f5; color: #1a1a1a; height: 100vh;
-    display: flex; flex-direction: column;
-  }
-
-  #splash {
-    position: fixed; inset: 0; background: #c31f3f; z-index: 9999;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; transition: opacity 0.5s;
-  }
-  #splash.kapan { opacity: 0; pointer-events: none; }
-  #splash .splash-firma { max-width: 320px; margin-bottom: 22px; }
-  #splash .splash-logo { font-size: 44px; font-weight: 800; color: #fff; letter-spacing: 2px; }
-  #splash .splash-alt { font-size: 11px; letter-spacing: 6px; color: rgba(255,255,255,0.75); text-transform: uppercase; }
-
-  .ust-bar {
-    background: #fff; padding: 12px 20px; border-bottom: 1px solid #e4e4e7;
-    display: flex; align-items: center; gap: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 500;
-  }
-  .ust-bar h1 { font-size: 22px; font-weight: 800; color: #c31f3f; letter-spacing: 1px; line-height: 1.1; }
-  .sekmeler { display: flex; gap: 4px; margin-left: 12px; }
-  .sekmeler a {
-    color: #6b7280; font-size: 13px; text-decoration: none; font-weight: 600;
-    padding: 8px 16px; border-radius: 4px;
-  }
-  .sekmeler a:hover { color: #c31f3f; background: #faf3f4; }
-  .sekmeler a.aktif { color: #c31f3f; background: #fbeaec; }
-
   .icerik { display: flex; gap: 15px; padding: 15px; flex: 1; min-height: 0; }
-
-  .kolon { background: #fff; border: 1px solid #ececee; border-radius: 2px; padding: 15px; overflow-y: auto; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .kolon h2 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
-    color: #6b7280; margin-bottom: 10px; font-weight: 600;
-  }
-
+  .kolon { overflow-y: auto; border-radius: var(--radius); }
   .sol { width: 320px; flex-shrink: 0; }
   /* min-width: 0 olmadan flex ogesi icerigi kadar genisler ve tum sayfayi tasirir */
   .sag { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 
   .form-grup { margin-bottom: 8px; }
-  .form-grup label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 2px; }
-  .form-grup input, .form-grup select {
-    width: 100%; padding: 7px 9px; background: #fff; border: 1px solid #d4d4d8;
-    color: #1a1a1a; border-radius: 2px; font-size: 12px;
-    -webkit-appearance: none; appearance: none;
-  }
-  .form-grup select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
-  }
-  .form-grup input:focus, .form-grup select:focus { outline: none; border-color: #c31f3f; }
+  .form-grup input, .form-grup select { padding: 7px 9px; font-size: 12px; }
 
   .satir { display: flex; gap: 6px; }
   .satir > * { flex: 1; }
 
-  .btn {
-    padding: 8px 14px; border: none; border-radius: 2px; cursor: pointer;
+  .btn-ekle {
+    padding: 8px 14px; border: none; border-radius: var(--radius); cursor: pointer;
     font-size: 12px; font-weight: bold; width: 100%;
+    background: var(--brand); color: #fff; margin-top: 8px;
   }
-  .btn-ekle { background: #c31f3f; color: #fff; margin-top: 8px; box-shadow: 0 2px 6px rgba(195,31,63,0.3); }
-  .btn-ekle:hover { background: #a51a35; }
+  .btn-ekle:hover { background: var(--brand-hover); }
 
-  .btn-dagit {
-    background: #fff; color: #374151; border: 1px solid #d4d4d8;
-    padding: 5px 12px; font-size: 11px; width: auto;
-  }
-  .btn-dagit:hover { border-color: #c31f3f; color: #c31f3f; }
   .btn-durum {
-    background: #fff; color: #374151; border: 1px solid #d4d4d8;
+    background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong);
     padding: 5px 12px; font-size: 11px; margin-left: auto; width: auto;
+    border-radius: var(--radius); cursor: pointer;
   }
-  .btn-durum:hover { border-color: #2563eb; color: #2563eb; }
-  .btn-durum.acik { background: #eff6ff; border-color: #2563eb; color: #2563eb; }
+  .btn-durum:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-durum.acik { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
 
   .bolge-durum {
-    background: #fafafa; border: 1px solid #ececee; border-radius: 6px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 6px; margin-bottom: 8px; max-height: 260px; overflow-y: auto;
   }
   .bolge-durum .bd-satir {
     display: flex; align-items: center; gap: 8px; padding: 5px 8px;
     border-radius: 4px; font-size: 12px;
   }
-  .bolge-durum .bd-satir + .bd-satir { border-top: 1px solid #f0f0f0; }
-  .bolge-durum .bd-ad { font-weight: 600; color: #1a1a1a; flex: 1; }
-  .bolge-durum .bd-metrik { color: #6b7280; font-size: 11px; white-space: nowrap; }
+  .bolge-durum .bd-satir + .bd-satir { border-top: 1px solid var(--border); }
+  .bolge-durum .bd-ad { font-weight: 600; color: var(--text); flex: 1; }
+  .bolge-durum .bd-metrik { color: var(--text-2); font-size: 11px; white-space: nowrap; }
   .bolge-durum .bd-badge {
     font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px;
     text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
   }
-  .bolge-durum .bd-hazir { background: #dcfce7; color: #15803d; }
-  .bolge-durum .bd-bekliyor { background: #f3f4f6; color: #9ca3af; }
-  .bolge-durum .bd-sebep { color: #15803d; font-size: 11px; font-style: italic; white-space: nowrap; }
-  .bolge-durum .bd-bos { color: #9ca3af; font-size: 12px; padding: 8px; text-align: center; }
-  .bolge-durum .bd-bolgesiz { color: #b45309; font-size: 11px; padding: 6px 8px; border-top: 1px solid #f0f0f0; }
+  .bolge-durum .bd-hazir { background: var(--ok-bg); color: var(--ok); }
+  .bolge-durum .bd-bekliyor { background: var(--surface-3); color: var(--text-muted); }
+  .bolge-durum .bd-sebep { color: var(--ok); font-size: 11px; font-style: italic; white-space: nowrap; }
+  .bolge-durum .bd-bos { color: var(--text-muted); font-size: 12px; padding: 8px; text-align: center; }
+  .bolge-durum .bd-bolgesiz { color: var(--amber); font-size: 11px; padding: 6px 8px; border-top: 1px solid var(--border); }
 
-  .ayirici { border: none; border-top: 1px solid #ececee; margin: 15px 0; }
+  .ayirici { border: none; border-top: 1px solid var(--border); margin: 15px 0; }
 
   .havuz-baslik { display: flex; justify-content: flex-start; align-items: center; gap: 12px; margin-bottom: 8px; }
   .havuz-baslik h2 { margin-bottom: 0; }
-  .havuz-baslik span { font-size: 11px; color: #6b7280; }
+  .havuz-baslik span { font-size: 11px; color: var(--text-2); }
 
   .teslimat-havuz {
     min-height: 60px; max-height: 22vh; overflow-y: auto;
-    border: 2px dashed #d4d4d8; border-radius: 2px; padding: 6px;
+    border: 2px dashed var(--border-strong); border-radius: var(--radius); padding: 6px;
     display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
   }
-  .teslimat-havuz.drag-over { border-color: #c31f3f; background: rgba(195,31,63,0.04); }
+  .teslimat-havuz.drag-over { border-color: var(--brand); background: rgba(229,69,95,0.08); }
 
   .teslimat-chip {
-    background: #fff; padding: 6px 10px; border-radius: 2px; font-size: 11px;
-    cursor: grab; user-select: none; border: 1px solid #e4e4e7; position: relative;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    background: var(--surface-2); padding: 6px 10px; border-radius: var(--radius); font-size: 11px;
+    cursor: grab; user-select: none; border: 1px solid var(--border); position: relative;
   }
   .teslimat-chip:active { cursor: grabbing; }
   .teslimat-chip.dragging { opacity: 0.4; }
-  .teslimat-chip .chip-isim { font-weight: bold; color: #1a1a1a; }
-  .teslimat-chip .chip-detay { color: #6b7280; font-size: 10px; }
+  .teslimat-chip .chip-isim { font-weight: bold; color: var(--text); }
+  .teslimat-chip .chip-detay { color: var(--text-2); font-size: 10px; }
   .teslimat-chip .chip-sira {
     display: inline-block; min-width: 16px; height: 16px; line-height: 16px;
-    background: #c31f3f; color: #fff; font-size: 9px; font-weight: bold;
-    text-align: center; margin-right: 6px; padding: 0 3px;
+    background: var(--brand); color: #fff; font-size: 9px; font-weight: bold;
+    text-align: center; margin-right: 6px; padding: 0 3px; border-radius: 3px;
   }
   .teslimat-chip .chip-sil {
-    position: absolute; top: -4px; right: -4px; background: #c31f3f; color: #fff;
+    position: absolute; top: -4px; right: -4px; background: var(--brand); color: #fff;
     border: none; border-radius: 50%; width: 14px; height: 14px; font-size: 9px;
     cursor: pointer; display: none; line-height: 14px; text-align: center;
   }
   .teslimat-chip:hover .chip-sil { display: block; }
 
   .adres-popup {
-    position: fixed; z-index: 1000; background: #fff; border: 1px solid #e4e4e7;
-    border-radius: 2px; padding: 12px 14px; font-size: 11px; color: #374151;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.15); min-width: 200px; max-width: 260px;
+    position: fixed; z-index: 1000; background: var(--surface-3); border: 1px solid var(--border-strong);
+    border-radius: var(--radius); padding: 12px 14px; font-size: 11px; color: var(--text-2);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4); min-width: 200px; max-width: 260px;
     pointer-events: none;
   }
-  .adres-popup .popup-baslik { font-weight: bold; color: #1a1a1a; margin-bottom: 8px; font-size: 12px; }
+  .adres-popup .popup-baslik { font-weight: bold; color: var(--text); margin-bottom: 8px; font-size: 12px; }
   .adres-popup .popup-satir { display: flex; gap: 6px; margin-bottom: 4px; }
-  .adres-popup .popup-etiket { color: #c31f3f; min-width: 55px; font-weight: 600; }
-  .adres-popup .popup-deger { color: #374151; }
+  .adres-popup .popup-etiket { color: var(--brand); min-width: 55px; font-weight: 600; }
+  .adres-popup .popup-deger { color: var(--text-2); }
 
   /* ---- Filo: ana liste + detay paneli ---- */
   .filo-alan { display: flex; gap: 10px; flex: 1; min-height: 0; }
@@ -156,114 +105,112 @@
     display: flex; flex-direction: column; min-height: 0;
   }
   .panel-baslik {
-    padding: 12px 14px 10px; border-bottom: 1px solid #ececee;
+    padding: 12px 14px 10px; border-bottom: 1px solid var(--border);
     display: flex; align-items: baseline; gap: 8px; flex-shrink: 0;
   }
   .panel-baslik h2 { margin: 0; }
-  .panel-baslik .sayac { font-size: 11px; color: #9ca3af; margin-left: auto; }
+  .panel-baslik .sayac { font-size: 11px; color: var(--text-muted); margin-left: auto; }
 
   .arac-satirlar { overflow-y: auto; flex: 1; min-height: 0; }
 
   .arac-satir {
-    padding: 8px 12px; border-bottom: 1px solid #f4f4f5; cursor: pointer;
+    padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer;
     border-left: 3px solid transparent;
   }
-  .arac-satir:hover { background: #fafafa; }
-  .arac-satir.secili { background: rgba(195,31,63,0.05); border-left-color: #c31f3f; }
-  .arac-satir.drag-over { background: rgba(0,168,98,0.12); border-left-color: #00a862; }
-  .arac-satir.kapasite-asimi .satir-ad { color: #dc2626; }
+  .arac-satir:hover { background: var(--surface-2); }
+  .arac-satir.secili { background: var(--brand-bg); border-left-color: var(--brand); }
+  .arac-satir.drag-over { background: rgba(34,197,142,0.15); border-left-color: var(--teal); }
+  .arac-satir.kapasite-asimi .satir-ad { color: #ef4444; }
   .arac-satir .satir-ust { display: flex; align-items: baseline; gap: 6px; }
-  .arac-satir .satir-ad { font-weight: bold; font-size: 12px; color: #1a1a1a; }
+  .arac-satir .satir-ad { font-weight: bold; font-size: 12px; color: var(--text); }
   .arac-satir .satir-adet {
-    margin-left: auto; font-size: 10px; font-weight: bold; color: #6b7280;
-    background: #f4f4f5; padding: 1px 6px;
+    margin-left: auto; font-size: 10px; font-weight: bold; color: var(--text-2);
+    background: var(--surface-3); padding: 1px 6px; border-radius: 3px;
   }
-  .arac-satir .satir-alt { font-size: 10px; color: #9ca3af; margin-top: 1px; }
+  .arac-satir .satir-alt { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
   .arac-satir .satir-sofor { font-size: 10px; margin-top: 2px; }
-  .arac-satir .satir-sofor .sofor-dolu { color: #c31f3f; font-weight: 600; }
-  .arac-satir .satir-sofor .sofor-bos { color: #c4c4c8; font-style: italic; }
+  .arac-satir .satir-sofor .sofor-dolu { color: var(--brand); font-weight: 600; }
+  .arac-satir .satir-sofor .sofor-bos { color: var(--text-muted); font-style: italic; }
   .arac-satir .satir-sofor .satir-bolge {
-    color: #2563eb; font-weight: 600; background: #eff6ff;
+    color: var(--accent); font-weight: 600; background: var(--accent-bg);
     padding: 0 5px; border-radius: 3px; margin-left: 3px;
   }
   .arac-satir .satir-barlar { display: flex; gap: 4px; margin-top: 5px; }
   .arac-satir .satir-barlar .kapasite-bar { flex: 1; margin-top: 0; }
 
   .sofor-ata { display: flex; align-items: center; gap: 8px; margin: 10px 14px 4px; }
-  .sofor-ata label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-  .sofor-ata .sofor-dolu { font-size: 13px; font-weight: 600; color: #c31f3f; }
-  .sofor-atama-link { font-size: 12px; color: #9ca3af; text-decoration: none; font-style: italic; }
-  .sofor-atama-link:hover { color: #c31f3f; text-decoration: underline; }
+  .sofor-ata label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .sofor-ata .sofor-dolu { font-size: 13px; font-weight: 600; color: var(--brand); }
+  .sofor-atama-link { font-size: 12px; color: var(--text-muted); text-decoration: none; font-style: italic; }
+  .sofor-atama-link:hover { color: var(--brand); text-decoration: underline; }
   .bolge-ata { margin-top: 2px; }
   .bolge-ata .bolge-sec {
-    flex: 1; padding: 4px 6px; font-size: 12px; border: 1px solid #e4e4e7;
-    border-radius: 4px; background: #fff; color: #374151; cursor: pointer;
+    flex: 1; padding: 4px 6px; font-size: 12px; border: 1px solid var(--border);
+    border-radius: 4px; background: var(--surface-2); color: var(--text); cursor: pointer;
   }
-  .bolge-ata .bolge-sec:focus { outline: none; border-color: #2563eb; }
+  .bolge-ata .bolge-sec:focus { outline: none; border-color: var(--accent); }
 
   .arac-detay {
     flex: 1; min-width: 0; padding: 0;
     display: flex; flex-direction: column; min-height: 0;
   }
-  .detay-baslik { padding: 12px 14px; border-bottom: 1px solid #ececee; flex-shrink: 0; }
-  .detay-baslik .arac-isim { font-weight: bold; font-size: 14px; color: #1a1a1a; }
-  .detay-baslik .arac-tip { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+  .detay-baslik { padding: 12px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .detay-baslik .arac-isim { font-weight: bold; font-size: 14px; color: var(--text); }
+  .detay-baslik .arac-tip { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
   .detay-baslik .arac-sil {
-    background: none; border: none; color: #c31f3f; cursor: pointer; font-size: 16px;
+    background: none; border: none; color: var(--brand); cursor: pointer; font-size: 16px;
     float: right; line-height: 1;
   }
-  .detay-ozet { font-size: 11px; color: #6b7280; margin-top: 3px; }
+  .detay-ozet { font-size: 11px; color: var(--text-2); margin-top: 3px; }
 
-  .arac-kapasite { padding: 8px 14px; font-size: 10px; color: #6b7280; border-bottom: 1px solid #ececee; flex-shrink: 0; }
-  .kapasite-bar { height: 4px; background: #ececee; border-radius: 2px; margin-top: 3px; }
+  .arac-kapasite { padding: 8px 14px; font-size: 10px; color: var(--text-2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .kapasite-bar { height: 4px; background: var(--surface-3); border-radius: 2px; margin-top: 3px; }
   .kapasite-bar-dolu { height: 100%; border-radius: 2px; transition: width 0.3s; }
-  .kapasite-bar-dolu.normal { background: #00a862; }
-  .kapasite-bar-dolu.uyari { background: #f59e0b; }
-  .kapasite-bar-dolu.asimi { background: #dc2626; }
+  .kapasite-bar-dolu.normal { background: var(--teal); }
+  .kapasite-bar-dolu.uyari { background: var(--amber); }
+  .kapasite-bar-dolu.asimi { background: #ef4444; }
 
   .arac-icerik {
     flex: 1; padding: 10px; min-height: 0; overflow-y: auto;
     display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start;
   }
-  .arac-icerik.drag-over { background: rgba(0,168,98,0.05); }
+  .arac-icerik.drag-over { background: rgba(34,197,142,0.08); }
 
   /* ---- Havuz: ilceye gore gruplu ---- */
   .ilce-grup { width: 100%; margin-bottom: 4px; }
   .ilce-baslik {
     display: flex; align-items: center; gap: 6px; cursor: pointer;
-    padding: 4px 6px; background: #fafafa; border-left: 2px solid #c31f3f;
-    font-size: 11px; font-weight: 600; color: #374151; user-select: none;
+    padding: 4px 6px; background: var(--surface-2); border-left: 2px solid var(--brand);
+    font-size: 11px; font-weight: 600; color: var(--text-2); user-select: none;
   }
-  .ilce-baslik:hover { background: #f4f4f5; }
-  .ilce-baslik .ok { color: #9ca3af; font-size: 9px; width: 8px; }
-  .ilce-baslik .ilce-adet { margin-left: auto; color: #9ca3af; font-weight: 400; }
+  .ilce-baslik:hover { background: var(--surface-3); }
+  .ilce-baslik .ok { color: var(--text-muted); font-size: 9px; width: 8px; }
+  .ilce-baslik .ilce-adet { margin-left: auto; color: var(--text-muted); font-weight: 400; }
   .ilce-cipler { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px 8px; }
   .ilce-grup.kapali .ilce-cipler { display: none; }
 
-  .bos-mesaj { color: #9ca3af; font-size: 11px; width: 100%; text-align: center; padding: 20px 0; }
-
   .btn-yazdir-tum {
-    background: #fff; color: #374151; border: 1px solid #d4d4d8;
+    background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong);
     padding: 4px 10px; font-size: 11px; margin-left: 8px; width: auto; cursor: pointer;
-    border-radius: 2px;
+    border-radius: var(--radius);
   }
-  .btn-yazdir-tum:hover { border-color: #c31f3f; color: #c31f3f; }
+  .btn-yazdir-tum:hover { border-color: var(--brand); color: var(--brand); }
   .btn-yazdir {
-    float: right; background: #fff; color: #374151; border: 1px solid #d4d4d8;
-    padding: 3px 10px; font-size: 11px; width: auto; cursor: pointer; border-radius: 2px;
+    float: right; background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong);
+    padding: 3px 10px; font-size: 11px; width: auto; cursor: pointer; border-radius: var(--radius);
     margin-right: 6px;
   }
-  .btn-yazdir:hover { border-color: #c31f3f; color: #c31f3f; }
+  .btn-yazdir:hover { border-color: var(--brand); color: var(--brand); }
   .btn-yazdir:disabled, .btn-yazdir-tum:disabled {
-    color: #c4c4c8; border-color: #e4e4e7; cursor: not-allowed;
+    color: var(--text-muted); border-color: var(--border); cursor: not-allowed;
   }
-  .btn-yazdir:disabled:hover, .btn-yazdir-tum:disabled:hover { color: #c4c4c8; border-color: #e4e4e7; }
+  .btn-yazdir:disabled:hover, .btn-yazdir-tum:disabled:hover { color: var(--text-muted); border-color: var(--border); }
   .btn-tamamla {
-    float: right; background: #ecfdf5; color: #15803d; border: 1px solid #a7f3d0;
-    padding: 3px 10px; font-size: 11px; width: auto; cursor: pointer; border-radius: 2px;
+    float: right; background: var(--ok-bg); color: var(--ok); border: 1px solid #1f5738;
+    padding: 3px 10px; font-size: 11px; width: auto; cursor: pointer; border-radius: var(--radius);
     margin-right: 6px;
   }
-  .btn-tamamla:hover { border-color: #15803d; }
+  .btn-tamamla:hover { border-color: var(--ok); }
 
   /* --- Yazdirma alani: ekranda gizli, sadece baskida gorunur --- */
   #yazdir-alani { display: none; }
@@ -411,8 +358,7 @@
       <div class="havuz-baslik">
         <h2>Atanmamış Teslimatlar</h2>
         <span id="havuz-sayac">0 teslimat</span>
-        <button class="btn btn-durum" onclick="bolgeDurumToggle()">Bölge Durumu</button>
-        <button class="btn btn-dagit" onclick="otomatikDagit()">Otomatik Dağıt</button>
+        <button class="btn-durum" onclick="bolgeDurumToggle()">Bölge Durumu</button>
       </div>
       <div class="bolge-durum" id="bolge-durum" style="display:none;"></div>
       <div class="teslimat-havuz" id="havuz"
