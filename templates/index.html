@@ -188,6 +188,15 @@
         Depoya dönüş rotası ekle
       </label>
     </div>
+    <div class="form-grup" style="margin-top:8px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="evine-don" style="width:auto;accent-color:#0891b2;">
+        Şoförün evine dönüş çizgisi
+      </label>
+      <select id="sofor-sec" style="margin-top:6px;display:none;">
+        <option value="">— şoför seçin —</option>
+      </select>
+    </div>
   </div>
 
   <div id="filo-alan" style="display:none;">
@@ -243,10 +252,59 @@ var markerlar = [];
 var rotaCizgiler = [];
 var sayac = 0;
 
+// Esnaf acik rota gostergesi (istemci tarafi, API cagrisi yok)
+var soforlar = {};        // id -> {ad, ev_lat, ev_lon}
+var evCizgi = null, evMarker = null;
+var sonVeri = null, sonSonuc = null;
+
 var now = new Date();
 now.setMinutes(now.getMinutes() + 30);
 var iso = now.toISOString().slice(0, 16);
 document.getElementById('kalkis-zamani').value = iso;
+
+// Ev konumu girilmis soforleri menuye doldur
+fetch('/api/soforler')
+  .then(function(r) { return r.json(); })
+  .then(function(liste) {
+    var sec = document.getElementById('sofor-sec');
+    liste.forEach(function(s) {
+      if (s.ev_lat == null || s.ev_lon == null) return;
+      soforlar[s.id] = s;
+      var o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.ad;
+      sec.appendChild(o);
+    });
+  });
+
+document.getElementById('evine-don').addEventListener('change', function() {
+  document.getElementById('sofor-sec').style.display = this.checked ? 'block' : 'none';
+  evineDonusCiz();
+});
+document.getElementById('sofor-sec').addEventListener('change', evineDonusCiz);
+
+// Son duraktan secili soforun evine kesikli cizgi cizer; toggle/secim degisince
+// yeniden hesaplamaya (ucretli API) gerek kalmadan sadece cizgiyi gunceller.
+function evineDonusCiz() {
+  if (evCizgi) { map.removeLayer(evCizgi); evCizgi = null; }
+  if (evMarker) { map.removeLayer(evMarker); evMarker = null; }
+
+  var acik = document.getElementById('evine-don').checked;
+  var sid = document.getElementById('sofor-sec').value;
+  if (!acik || !sid || !soforlar[sid] || !sonVeri || !sonSonuc) return;
+
+  var sofor = soforlar[sid];
+  var sonIdx = sonSonuc.optimal_sira[sonSonuc.optimal_sira.length - 1];
+  var sonDurak = sonVeri.teslimatlar[sonIdx];
+  var ev = [sofor.ev_lat, sofor.ev_lon];
+
+  evCizgi = L.polyline([[sonDurak.lat, sonDurak.lon], ev], {
+    color: '#0891b2', weight: 4, opacity: 0.9, dashArray: '4, 8',
+  }).addTo(map);
+  evMarker = L.circleMarker(ev, {
+    radius: 7, fillColor: '#0891b2', color: '#fff', weight: 2, fillOpacity: 1,
+  }).bindTooltip(sofor.ad + ' — ev', {permanent: true, direction: 'top', offset: [0, -8]}).addTo(map);
+}
 
 function adresAra(inputEl, latEl, lonEl, isimEl) {
   var adres = inputEl.value;
@@ -388,6 +446,8 @@ function decodePolyline(encoded) {
 }
 
 function haritaCiz(veri, sonuc) {
+  sonVeri = veri;
+  sonSonuc = sonuc;
   markerlar.forEach(function(m) { map.removeLayer(m); });
   markerlar = [];
   rotaCizgiler.forEach(function(c) { map.removeLayer(c); });
@@ -422,6 +482,9 @@ function haritaCiz(veri, sonuc) {
     rotaCizgiler.push(cizgi);
     bounds.extend(cizgi.getBounds());
   });
+
+  evineDonusCiz();
+  if (evCizgi) bounds.extend(evCizgi.getBounds());
 
   map.fitBounds(bounds, {padding: [40, 40]});
 }
