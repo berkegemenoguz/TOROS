@@ -1188,6 +1188,15 @@ def otomatik_dagit():
 
             ev_pt = arac["ev"]
             sirali = iki_opt(en_yakin_komsu(secili), ev_pt)
+            # Kapasite sigdi ama VARDIYA asiliyorsa, rotanin kuyrugunu (depoya en
+            # uzak biten duraklari) bir sonraki araca devret. Boylece coklu arac
+            # yuku sadece kapasiteye degil mesai suresine gore de boler.
+            atilanlar = []
+            while len(sirali) > 1 and mesai_dk(sirali) > VARDIYA_DK:
+                atilanlar.append(sirali.pop())
+            if atilanlar:
+                kalan_tes = sorted(kalan_tes + atilanlar,
+                                   key=lambda t: (t["termin"], t["olusturma"]))
             ag = sum(t["ag"] for t in sirali)
             hc = sum(t["hc"] for t in sirali)
             dk = mesai_dk(sirali)

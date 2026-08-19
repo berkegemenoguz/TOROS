@@ -511,20 +511,20 @@ function detayKapasiteCiz() {
                 + 'Hacim: ' + y.hc.toFixed(2) + ' / ' + a.maxHc + ' m3' + bar(y.hcOran);
 }
 
-// Bolge secim menusu opsiyonlari; secili bolge isaretlenir.
+// Bolge secim menusu opsiyonlari. Coklu arac/bolge desteklenir: tum bolgeler
+// gosterilir; baska araclara atanmis bolgeler "(zaten N araç)" notuyla isaretlenir
+// ama secilebilir (bir bolgeye 2+ arac atanabilir).
 function bolgeOpsiyonlari(secili) {
-  // Baska araclara atanmis bolgeler menude gosterilmez (1 bolge = 1 arac);
-  // mevcut aracin kendi bolgesi ise secili olarak kalir.
-  var alinmis = {};
+  var sayim = {};
   Object.keys(araclar).forEach(function(id) {
     if (parseInt(id) === seciliArac) return;
-    if (araclar[id].bolge) alinmis[araclar[id].bolge] = true;
+    if (araclar[id].bolge) sayim[araclar[id].bolge] = (sayim[araclar[id].bolge] || 0) + 1;
   });
   var html = '<option value="">— bölge seçilmedi —</option>';
   bolgeListesi.forEach(function(b) {
-    if (alinmis[b] && b !== secili) return;
+    var etiket = b + (sayim[b] ? ' — zaten ' + sayim[b] + ' araç' : '');
     html += '<option value="' + kacar(b) + '"' + (b === secili ? ' selected' : '') + '>'
-          + kacar(b) + '</option>';
+          + kacar(etiket) + '</option>';
   });
   return html;
 }
