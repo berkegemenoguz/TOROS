@@ -950,7 +950,6 @@ VARDIYA_DK = 540.0     # 9 saatlik vardiya
 HIZ_KMH = 25.0         # Istanbul ici ortalama hiz
 YOL_SAPMA = 1.35       # kus ucusu mesafe -> gercek yol carpani
 KOPRU_KM = 12.0        # Bogaz gecisi cezasi
-HEDEF_DOLULUK = (70.0, 82.0)   # filo boyutlandirma uyarisi icin bant
 
 # --- Doluluk-esikli sevkiyat tetikleyicileri -------------------------------
 # Bir bolgenin araci ancak su kosullardan biri saglaninca yola cikar:
