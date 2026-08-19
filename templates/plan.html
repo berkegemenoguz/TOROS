@@ -31,6 +31,11 @@
   .cip.kilitli { border: 1.5px solid var(--accent); }
   .cip-ust { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
   .cip-ad { font-size: 13px; font-weight: 600; color: var(--text); }
+  .cip-flag {
+    margin-left: 6px; font-size: 10px; font-weight: 700; color: var(--amber);
+    background: var(--uyari-bg); border-radius: 3px; padding: 1px 6px; cursor: pointer; white-space: nowrap;
+  }
+  .cip-flag:hover { color: #fff; background: var(--amber); }
   .cip-kilit { margin-left: auto; background: none; border: none; cursor: pointer; padding: 2px; font-size: 15px; line-height: 1; color: var(--text-muted); }
   .cip-kilit.acik { color: var(--accent); }
   .cip-bar-satir { display: flex; align-items: center; gap: 8px; }
@@ -83,6 +88,20 @@
 
 <script>
 var sonSigmayanlar = [];
+var planCakismalari = {};   // "tarih|bolge" -> [pencere cakisma grubu]
+
+function planCakismaGoster(tarih, bolge) {
+  var c = planCakismalari[tarih + '|' + bolge];
+  if (!c || !c.length) return;
+  var s = [bolge + ' · ' + tarih + ' — pencere çakışması (' + c.length + ' grup):', ''];
+  c.forEach(function(g) {
+    s.push('⚠ ' + g.pencere + ' → ' + g.teslimat_sayisi + ' teslimat sığmıyor'
+      + ' (gereken ' + g.gereken_dk + 'dk > mevcut ' + g.mevcut_dk + 'dk)');
+    g.teslimatlar.forEach(function(t) { s.push('    • ' + t.adi); });
+    s.push('');
+  });
+  alert(s.join('\n'));
+}
 setTimeout(function() { document.getElementById('splash').classList.add('kapan'); }, 700);
 
 function bugunISO() { return new Date().toISOString().slice(0, 10); }
@@ -106,9 +125,15 @@ function cipCiz(tarih, b) {
   var kilitli = b.kesin_adet > 0 && b.kesin_adet === b.teslimat_sayisi;
   var kilitClass = kilitli ? 'cip-kilit acik' : 'cip-kilit';
   var kilitIkon = kilitli ? '🔒' : '🔓';
+  var cakisma = b.cakisma || [];
+  planCakismalari[tarih + '|' + b.bolge] = cakisma;
+  var flag = cakisma.length
+    ? '<span class="cip-flag" title="Pencere çakışması — detay için tıkla"'
+      + ' onclick="planCakismaGoster(\'' + tarih + '\', \'' + b.bolge.replace(/'/g, "\\'") + '\')">⚠ ' + cakisma.length + '</span>'
+    : '';
   return '<div class="cip' + (kilitli ? ' kilitli' : '') + '">'
     + '<div class="cip-ust">'
-    +   '<span class="cip-ad">' + b.bolge + '</span>'
+    +   '<span class="cip-ad">' + b.bolge + '</span>' + flag
     +   '<button class="' + kilitClass + '" title="Kesinleştir / aç"'
     +     ' onclick="kilitToggle(\'' + tarih + '\', \'' + b.bolge.replace(/'/g, "\\'") + '\', ' + kilitli + ')">' + kilitIkon + '</button>'
     + '</div>'

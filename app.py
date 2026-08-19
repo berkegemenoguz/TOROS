@@ -449,6 +449,27 @@ def _teslimat_pencere(r):
             "bas": bas, "son": son}
 
 
+@app.route("/api/pencere-kontrol", methods=["POST"])
+def pencere_kontrol():
+    """Verilen teslimat listesindeki pencere cakismalarini dondurur - UCRETSIZ.
+    Harita 'Google ile Optimize'den once bunu cagirir; cakisma varsa Google'a
+    (ucretli) gonderilmeden once uyarilir."""
+    v = request.json or {}
+    tesler = []
+    for i, t in enumerate(v.get("teslimatlar", [])):
+        bas = son = None
+        if t.get("pencere_bas") and t.get("pencere_son"):
+            try:
+                db = datetime.fromisoformat(t["pencere_bas"])
+                ds = datetime.fromisoformat(t["pencere_son"])
+                bas, son = db.hour * 60 + db.minute, ds.hour * 60 + ds.minute
+            except (ValueError, TypeError):
+                pass
+        tesler.append({"id": i, "adi": t.get("isim", f"Teslimat {i+1}"),
+                       "lat": t.get("lat"), "lon": t.get("lon"), "bas": bas, "son": son})
+    return jsonify({"cakismalar": pencere_cakismalari(tesler)})
+
+
 @app.route("/api/arac-cakismalari", methods=["GET"])
 def arac_cakismalari():
     """Her aracin ATANMIS teslimatlarindaki pencere cakismalari (Filo bayragi icin)."""

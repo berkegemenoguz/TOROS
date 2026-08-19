@@ -341,6 +341,30 @@ function hesapla() {
   // boylece depo/ev secimi tekrar ucretli API cagirmadan aninda degisir.
   veri.depoya_don = true;
 
+  // UCRETSIZ on-kontrol: pencereler cakisiyorsa Google (ucretli) bosa gider.
+  fetch('/api/pencere-kontrol', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teslimatlar: veri.teslimatlar })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(k) {
+    var c = (k && k.cakismalar) || [];
+    if (c.length) {
+      var s = ['⚠ Pencere çakışması var — Google optimizasyonu büyük olasılıkla rota bulamaz:', ''];
+      c.forEach(function(g) {
+        s.push('• ' + g.pencere + ': ' + g.teslimat_sayisi + ' teslimat sığmıyor'
+          + ' (gereken ' + g.gereken_dk + 'dk > mevcut ' + g.mevcut_dk + 'dk)');
+        g.teslimatlar.forEach(function(t) { s.push('      · ' + t.adi); });
+      });
+      s.push('', 'Yine de Google\'a gönderilsin mi? (ücretli çağrı)');
+      if (!confirm(s.join('\n'))) return;
+    }
+    hesaplaGercek(veri);
+  })
+  .catch(function() { hesaplaGercek(veri); });   // on-kontrol hata verse bile devam
+}
+
+function hesaplaGercek(veri) {
   document.getElementById('btn-hesapla').disabled = true;
   document.getElementById('yukleniyor').classList.add('aktif');
   document.getElementById('sonuc-panel').classList.remove('aktif');

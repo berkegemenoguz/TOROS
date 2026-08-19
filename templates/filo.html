@@ -135,6 +135,11 @@
     color: var(--accent); font-weight: 600; background: var(--accent-bg);
     padding: 0 5px; border-radius: 3px; margin-left: 3px;
   }
+  .arac-satir .satir-ust .satir-flag {
+    font-size: 10px; font-weight: 700; color: var(--amber); background: var(--uyari-bg);
+    border-radius: 3px; padding: 0 5px; margin-left: 6px; cursor: pointer; white-space: nowrap;
+  }
+  .arac-satir .satir-ust .satir-flag:hover { color: #fff; background: var(--amber); }
   .arac-satir .satir-barlar { display: flex; gap: 4px; margin-top: 5px; }
   .arac-satir .satir-barlar .kapasite-bar { flex: 1; margin-top: 0; }
 
@@ -399,6 +404,7 @@ setTimeout(function() { document.getElementById('splash').classList.add('kapan')
 var araclar = {};
 var teslimatlar = {};
 var bolgeListesi = [];
+var aracCakismalari = {};   // arac_id -> [pencere cakisma grubu]
 var suruklenen = null;
 
 var tipPreset = {
@@ -456,6 +462,10 @@ function aracSatirGuncelle(id) {
   if (a.rotaDk != null) alt.push(a.rotaDk + ' dk');
   satir.innerHTML = ''
     + '<div class="satir-ust"><span class="satir-ad">' + a.adi + '</span>'
+    + (aracCakismalari[id]
+        ? '<span class="satir-flag" title="Pencere çakışması — detay için tıkla"'
+          + ' onclick="event.stopPropagation();cakismaGoster(' + id + ')">⚠ ' + aracCakismalari[id].length + '</span>'
+        : '')
     + '<span class="satir-adet">' + a.teslimatlar.length + '</span></div>'
     + '<div class="satir-sofor">' + (a.soforAd
         ? '<span class="sofor-dolu">' + kacar(a.soforAd) + '</span>'
@@ -467,6 +477,21 @@ function aracSatirGuncelle(id) {
     + '<div class="satir-barlar">' + bar(y.agOran) + bar(y.hcOran) + '</div>';
   satir.classList.toggle('kapasite-asimi', y.agOran > 100 || y.hcOran > 100);
   satir.classList.toggle('secili', seciliArac === id);
+}
+
+// Pencere cakismasi detayi: tum gruplar + cakisan teslimatlar
+function cakismaGoster(id) {
+  var c = aracCakismalari[id];
+  if (!c || !c.length) return;
+  var ad = araclar[id] ? araclar[id].adi : ('Araç ' + id);
+  var s = [ad + ' — pencere çakışması (' + c.length + ' grup):', ''];
+  c.forEach(function(g) {
+    s.push('⚠ ' + g.pencere + ' → ' + g.teslimat_sayisi + ' teslimat tek araca sığmıyor'
+      + ' (gereken ' + g.gereken_dk + 'dk > mevcut ' + g.mevcut_dk + 'dk)');
+    g.teslimatlar.forEach(function(t) { s.push('    • ' + t.adi); });
+    s.push('');
+  });
+  alert(s.join('\n'));
 }
 
 function aracSec(id) {
@@ -1011,11 +1036,13 @@ function filoyuYukle() {
   Promise.all([
     fetch('/api/araclar').then(function(r) { return r.json(); }),
     fetch('/api/teslimatlar').then(function(r) { return r.json(); }),
-    fetch('/api/bolgeler').then(function(r) { return r.json(); })
+    fetch('/api/bolgeler').then(function(r) { return r.json(); }),
+    fetch('/api/arac-cakismalari').then(function(r) { return r.json(); })
   ]).then(function(sonuclar) {
     var aracListesi = sonuclar[0];
     var teslimatListesi = sonuclar[1];
     bolgeListesi = sonuclar[2] || [];
+    aracCakismalari = sonuclar[3] || {};
 
     // Teslim edilenler panodan duser (gunu tamamlanmis rota)
     teslimatListesi = teslimatListesi.filter(function(t) { return t.durum !== 'teslim_edildi'; });
