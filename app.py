@@ -608,9 +608,10 @@ def haftalik_plan():
         "WHERE aktif = TRUE AND bolge IS NOT NULL")).fetchall()
     bolge_arac = {}
     for a in arac_rows:
-        b = bolge_arac.setdefault(a.bolge, {"adi": a.adi, "cap_ag": 0.0, "cap_hc": 0.0})
+        b = bolge_arac.setdefault(a.bolge, {"adi": a.adi, "cap_ag": 0.0, "cap_hc": 0.0, "sayi": 0})
         b["cap_ag"] += float(a.max_agirlik)
         b["cap_hc"] += float(a.max_hacim)
+        b["sayi"] += 1
 
     # Bekleyen (atanmamis, konumu belli) teslimatlar - kesinlesmis dahil
     tes_rows = session.execute(text("""
@@ -656,11 +657,13 @@ def haftalik_plan():
                     "kategori": "araç yok",
                     "aciklama": f"{bolge} bölgesine atanmış araç yok — hiçbir güne konamaz"})
             continue
-        # Gun bazli kalan kapasite (kilitli yukler onceden dusuldu)
+        # Gun bazli kalan kapasite (kilitli yukler onceden dusuldu). Coklu araclı
+        # bolgede kapasiteye tavan uygulanir (bin-packing bosluguna nefes payi).
+        tavan = DOLULUK_TAVANI if arac.get("sayi", 1) > 1 else 1.0
         kalan = {}
         for g in gunler:
             ky = bv["kilitli_yuk"].get(g, [0.0, 0.0])
-            kalan[g] = [arac["cap_ag"] - ky[0], arac["cap_hc"] - ky[1]]
+            kalan[g] = [arac["cap_ag"] * tavan - ky[0], arac["cap_hc"] * tavan - ky[1]]
         # Termine gore yerlestir; her yuk EN DOLU uygun gune (kumeleme), esitlikte en erken
         for t in sorted(bv["plansiz"], key=lambda x: (x["termin"], x["olusturma"])):
             adaylar = [g for g in gunler
@@ -958,6 +961,11 @@ KOPRU_KM = 12.0        # Bogaz gecisi cezasi
 #   3) en eski yukun yasi BEKLEME_TAVANI_GUN'u doldurmus (sonsuz beklemeyi keser)
 DOLULUK_ESIK = 80.0
 BEKLEME_TAVANI_GUN = 3
+
+# Coklu araclı bolgede plan gunu %100'e doldurursa, Rotala yuku ayri araclara
+# bolerken bin-packing bosluklari yuzunden birkac yuk taşar ("araca sigmadi").
+# Bunu onlemek icin coklu araclı bolgeler bu tavana kadar planlanir (nefes payi).
+DOLULUK_TAVANI = 0.90
 
 ANADOLU_ILCELERI = {
     "adalar", "atasehir", "beykoz", "cekmekoy", "kadikoy", "kartal", "maltepe",
