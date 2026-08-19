@@ -1,5 +1,6 @@
 import os
 import io
+import math
 import requests
 import segno
 from flask import Flask, request, jsonify, send_file
@@ -359,9 +360,10 @@ def havuz_durum():
 GUN_ADLARI = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
 
 
-def _gun_ciktisi(gunler, gun_bolge, bolge_arac):
+def _gun_ciktisi(gunler, gun_bolge, bolge_arac, cakismalar=None):
     """Gun+bolge yuk ozetinden takvim ciktisini kurar (POST plan ve GET plan-durum
-    ayni sekli dondursun diye ortak)."""
+    ayni sekli dondursun diye ortak). cakismalar: {(gun,bolge): [cakisma grubu]}."""
+    cakismalar = cakismalar or {}
     out = []
     for g in gunler:
         bolgeler = []
@@ -376,11 +378,96 @@ def _gun_ciktisi(gunler, gun_bolge, bolge_arac):
                 "bolge": bolge, "arac": arac.get("adi", ""),
                 "teslimat_sayisi": d["adet"],
                 "agirlik": round(d["ag"], 1), "hacim": round(d["hc"], 2),
-                "doluluk": doluluk, "kesin_adet": d["kesin"]})
+                "doluluk": doluluk, "kesin_adet": d["kesin"],
+                "cakisma": cakismalar.get((gg, bolge), [])})
         bolgeler.sort(key=lambda x: -x["teslimat_sayisi"])
         out.append({
             "tarih": str(g), "gun_adi": GUN_ADLARI[g.weekday()], "bolgeler": bolgeler})
     return out
+
+
+def _kus_ucusu_km(a, b):
+    R = 6371.0
+    p1, p2 = math.radians(a[0]), math.radians(b[0])
+    dp, dl = p2 - p1, math.radians(b[1] - a[1])
+    h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(h)) * YOL_SAPMA
+
+
+def _nn_zincir_dk(noktalar):
+    """Noktalar arasi en-yakin-komsu zincirinin yol suresi (dk), haversine ile."""
+    if len(noktalar) < 2:
+        return 0.0
+    kalan, cur, toplam = list(noktalar[1:]), noktalar[0], 0.0
+    while kalan:
+        nx = min(kalan, key=lambda p: _kus_ucusu_km(cur, p))
+        toplam += _kus_ucusu_km(cur, nx)
+        cur = nx
+        kalan.remove(nx)
+    return toplam / HIZ_KMH * 60.0
+
+
+def _dk_saat(m):
+    return f"{m // 60:02d}:{m % 60:02d}"
+
+
+def pencere_cakismalari(teslimatlar):
+    """Bir aracin pencereli teslimatlarini AYNI pencereye gore gruplar; bir grup
+    tek araca sigmiyorsa (N*servis + haversine yol > pencere suresi) cakisma sayar.
+    UCRETSIZ - Google yok. Haversine iyimser oldugu icin 'cakisiyor' dedigi gercek.
+    teslimatlar: [{id, adi, lat, lon, bas(dk), son(dk)}]. Doner: cakisan gruplar."""
+    pencereli = [t for t in teslimatlar if t.get("bas") is not None and t.get("lat") is not None]
+    gruplar = {}
+    for t in pencereli:
+        gruplar.setdefault((t["bas"], t["son"]), []).append(t)
+
+    cakismalar = []
+    for (bas, son), grup in gruplar.items():
+        if len(grup) < 2:
+            continue
+        mevcut = son - bas
+        gereken = len(grup) * SERVIS_DK + _nn_zincir_dk([(t["lat"], t["lon"]) for t in grup])
+        if gereken > mevcut:
+            cakismalar.append({
+                "pencere": f"{_dk_saat(bas)}-{_dk_saat(son)}",
+                "teslimat_sayisi": len(grup),
+                "gereken_dk": round(gereken),
+                "mevcut_dk": round(mevcut),
+                "teslimatlar": [{"id": t["id"], "adi": t["adi"]} for t in grup],
+            })
+    cakismalar.sort(key=lambda c: -c["teslimat_sayisi"])
+    return cakismalar
+
+
+def _teslimat_pencere(r):
+    """DB satirindan pencere_cakismalari girdisi (bas/son dakika)."""
+    bas = r.randevu_bas.hour * 60 + r.randevu_bas.minute if r.randevu_bas else None
+    son = r.randevu_son.hour * 60 + r.randevu_son.minute if r.randevu_son else None
+    return {"id": r.id, "adi": r.adi,
+            "lat": float(r.lat) if r.lat is not None else None,
+            "lon": float(r.lon) if r.lon is not None else None,
+            "bas": bas, "son": son}
+
+
+@app.route("/api/arac-cakismalari", methods=["GET"])
+def arac_cakismalari():
+    """Her aracin ATANMIS teslimatlarindaki pencere cakismalari (Filo bayragi icin)."""
+    session = Session()
+    rows = session.execute(text("""
+        SELECT t.id, t.adi, t.lat, t.lon, t.randevu_bas, t.randevu_son, t.arac_id
+        FROM teslimatlar t
+        WHERE t.arac_id IS NOT NULL AND t.durum = 'atandi'
+    """)).fetchall()
+    session.close()
+    arac_tesler = {}
+    for r in rows:
+        arac_tesler.setdefault(r.arac_id, []).append(_teslimat_pencere(r))
+    sonuc = {}
+    for aid, tesler in arac_tesler.items():
+        c = pencere_cakismalari(tesler)
+        if c:
+            sonuc[str(aid)] = c
+    return jsonify(sonuc)
 
 
 def _bolge_arac_kapasite(session):
@@ -413,29 +500,35 @@ def plan_durum():
     session = Session()
     bolge_arac = _bolge_arac_kapasite(session)
     rows = session.execute(text("""
-        SELECT t.agirlik, t.hacim, t.planlanan_gun, t.kesinlesmis, a.ilce
+        SELECT t.id, t.adi, t.agirlik, t.hacim, t.lat, t.lon,
+               t.randevu_bas, t.randevu_son, t.planlanan_gun, t.kesinlesmis, a.ilce
         FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id
         WHERE t.arac_id IS NULL AND t.planlanan_gun = ANY(:gunler)
     """), {"gunler": gunler}).fetchall()
     session.close()
 
     gun_bolge = {}
+    hucre_tesler = {}   # (gun,bolge) -> pencere kontrolu icin teslimat listesi
     for r in rows:
         bolge = bolge_bul(r.ilce)
         if not bolge:
             continue
-        d = gun_bolge.setdefault((r.planlanan_gun, bolge),
-                                 {"adet": 0, "ag": 0.0, "hc": 0.0, "kesin": 0})
+        anahtar = (r.planlanan_gun, bolge)
+        d = gun_bolge.setdefault(anahtar, {"adet": 0, "ag": 0.0, "hc": 0.0, "kesin": 0})
         d["adet"] += 1
         d["ag"] += float(r.agirlik or 0)
         d["hc"] += float(r.hacim or 0)
         if r.kesinlesmis:
             d["kesin"] += 1
+        hucre_tesler.setdefault(anahtar, []).append(_teslimat_pencere(r))
+
+    cakismalar = {k: pencere_cakismalari(v) for k, v in hucre_tesler.items()}
+    cakismalar = {k: v for k, v in cakismalar.items() if v}
 
     return jsonify({
         "baslangic": str(baslangic),
         "gun_sayisi": gun_sayisi,
-        "gunler": _gun_ciktisi(gunler, gun_bolge, bolge_arac),
+        "gunler": _gun_ciktisi(gunler, gun_bolge, bolge_arac, cakismalar),
     })
 
 
