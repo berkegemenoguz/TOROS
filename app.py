@@ -614,7 +614,7 @@ def haftalik_plan():
 
     # Bekleyen (atanmamis, konumu belli) teslimatlar - kesinlesmis dahil
     tes_rows = session.execute(text("""
-        SELECT t.id, t.agirlik, t.hacim, t.termin_tarihi, t.olusturma_zamani,
+        SELECT t.id, t.adi, t.agirlik, t.hacim, t.termin_tarihi, t.olusturma_zamani,
                t.planlanan_gun, t.kesinlesmis, a.ilce
         FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id
         WHERE t.arac_id IS NULL AND t.lat IS NOT NULL AND t.lon IS NOT NULL
@@ -641,7 +641,7 @@ def haftalik_plan():
                 gy[1] += hc
         else:
             bv["plansiz"].append({
-                "id": t.id, "ag": ag, "hc": hc,
+                "id": t.id, "adi": t.adi, "ag": ag, "hc": hc,
                 "termin": t.termin_tarihi or ILERI,
                 "olusturma": t.olusturma_zamani or datetime.now()})
 
@@ -651,7 +651,10 @@ def haftalik_plan():
         arac = bolge_arac.get(bolge)
         if not arac:
             for t in bv["plansiz"]:
-                sigmayan.append({"id": t["id"], "bolge": bolge, "neden": "araç atanmamış"})
+                sigmayan.append({
+                    "id": t["id"], "adi": t["adi"], "bolge": bolge, "termin": None,
+                    "kategori": "araç yok",
+                    "aciklama": f"{bolge} bölgesine atanmış araç yok — hiçbir güne konamaz"})
             continue
         # Gun bazli kalan kapasite (kilitli yukler onceden dusuldu)
         kalan = {}
@@ -663,8 +666,19 @@ def haftalik_plan():
             adaylar = [g for g in gunler
                        if g <= t["termin"] and kalan[g][0] >= t["ag"] and kalan[g][1] >= t["hc"]]
             if not adaylar:
-                neden = "termin penceresi geçti" if t["termin"] < gunler[0] else "hafta dolu"
-                sigmayan.append({"id": t["id"], "bolge": bolge, "neden": neden})
+                termin_str = str(t["termin"]) if t["termin"] != ILERI else None
+                if t["termin"] == ILERI:
+                    kategori = "hafta dolu"
+                    aciklama = f"{bolge} aracı tüm hafta dolu (bu teslimatın termini yok)"
+                elif t["termin"] < gunler[0]:
+                    kategori = "termin geçmiş"
+                    aciklama = f"termin {termin_str} — plan başlangıcından önce (geçmiş tarih)"
+                else:
+                    kategori = "termine kadar dolu"
+                    aciklama = (f"termini {termin_str}; {bolge} aracı o güne kadarki "
+                                f"günlerde dolu (boş günler bu terminden sonra, kullanılamaz)")
+                sigmayan.append({"id": t["id"], "adi": t["adi"], "bolge": bolge,
+                                 "termin": termin_str, "kategori": kategori, "aciklama": aciklama})
                 continue
             hedef = max(adaylar, key=lambda g: (
                 (arac["cap_ag"] - kalan[g][0]) + (arac["cap_hc"] - kalan[g][1]),

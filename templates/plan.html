@@ -224,10 +224,29 @@ function gunuRotala(tarih) {
 
 function sigmayanlariGoster() {
   if (!sonSigmayanlar.length) return;
+  // Kategoriye gore grupla: ne (teslimat) + neden (kategori + termin)
   var grup = {};
-  sonSigmayanlar.forEach(function(s){ grup[s.neden] = (grup[s.neden] || 0) + 1; });
+  sonSigmayanlar.forEach(function(s) {
+    (grup[s.kategori || 'diğer'] = grup[s.kategori || 'diğer'] || []).push(s);
+  });
+  var aciklamaMetni = {
+    'termine kadar dolu': 'Bölgenin aracı, teslimatın terminine kadarki günlerde dolu — boş günler terminden sonra olduğu için kullanılamıyor.',
+    'termin geçmiş': 'Termin, plan başlangıç gününden önce (geçmiş tarih).',
+    'araç yok': 'Bu bölgeye atanmış araç yok, hiçbir güne konamaz.',
+    'hafta dolu': 'Bölgenin aracı seçilen hafta boyunca dolu.'
+  };
   var satir = ['Plana sığmayan ' + sonSigmayanlar.length + ' teslimat:', ''];
-  Object.keys(grup).forEach(function(n){ satir.push('• ' + n + ': ' + grup[n]); });
+  Object.keys(grup).forEach(function(k) {
+    var g = grup[k];
+    satir.push('▸ ' + k.toUpperCase() + ' — ' + g.length + ' teslimat');
+    if (aciklamaMetni[k]) satir.push('   ' + aciklamaMetni[k]);
+    g.slice(0, 10).forEach(function(s) {
+      satir.push('   • ' + (s.adi || ('#' + s.id)) + '  [' + s.bolge + ']'
+        + (s.termin ? '  · termin ' + s.termin : ''));
+    });
+    if (g.length > 10) satir.push('   … +' + (g.length - 10) + ' teslimat daha');
+    satir.push('');
+  });
   alert(satir.join('\n'));
 }
 
