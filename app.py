@@ -526,7 +526,18 @@ def plan_durum():
         FROM teslimatlar t LEFT JOIN adresler a ON a.id = t.adres_id
         WHERE t.arac_id IS NULL AND t.planlanan_gun = ANY(:gunler)
     """), {"gunler": gunler}).fetchall()
+    sayim = session.execute(text("""
+        SELECT
+          COUNT(*) FILTER (
+            WHERE arac_id IS NULL AND lat IS NOT NULL AND lon IS NOT NULL) AS toplam,
+          COUNT(*) FILTER (
+            WHERE arac_id IS NULL AND planlanan_gun = ANY(:gunler)) AS yerlesik
+        FROM teslimatlar
+    """), {"gunler": gunler}).fetchone()
     session.close()
+
+    toplam = int(sayim.toplam or 0)
+    yerlesik = int(sayim.yerlesik or 0)
 
     gun_bolge = {}
     hucre_tesler = {}   # (gun,bolge) -> pencere kontrolu icin teslimat listesi
@@ -550,6 +561,12 @@ def plan_durum():
         "baslangic": str(baslangic),
         "gun_sayisi": gun_sayisi,
         "gunler": _gun_ciktisi(gunler, gun_bolge, bolge_arac, cakismalar),
+        "panel": {
+            "toplam": toplam,
+            "yerlesik": yerlesik,
+            "bekleyen": max(0, toplam - yerlesik),
+            "yuklenemeyen": None,   # nedenler POST /api/haftalik-plan ile gelir
+        },
     })
 
 
@@ -625,13 +642,18 @@ def haftalik_plan():
     ILERI = date.max
     bolge_veri = {}   # bolge -> {plansiz:[...], kilitli_yuk:{gun:[ag,hc]}}
     tes_map = {}      # id -> {bolge, ag, hc, kesin}
-    bolgesiz = 0
+    bolgesiz_list = []
     for t in tes_rows:
         bolge = bolge_bul(t.ilce)
         ag, hc = float(t.agirlik or 0), float(t.hacim or 0)
         if not bolge:
             if not t.kesinlesmis:
-                bolgesiz += 1
+                bolgesiz_list.append({
+                    "id": t.id, "adi": t.adi, "bolge": "—",
+                    "termin": str(t.termin_tarihi) if t.termin_tarihi else None,
+                    "kategori": "bölgesiz",
+                    "aciklama": "Teslimatın ilçesi bir bölgeye eşlenmiyor — "
+                                "hiçbir araca/güne konamaz"})
             continue
         tes_map[t.id] = {"bolge": bolge, "ag": ag, "hc": hc, "kesin": bool(t.kesinlesmis)}
         bv = bolge_veri.setdefault(bolge, {"plansiz": [], "kilitli_yuk": {}})
@@ -726,6 +748,11 @@ def haftalik_plan():
 
     gun_ciktisi = _gun_ciktisi(gunler, gun_bolge, bolge_arac)
 
+    bolgesiz = len(bolgesiz_list)
+    kesin_yerlesik = sum(1 for t in tes_rows
+                         if t.kesinlesmis and t.planlanan_gun
+                         and t.planlanan_gun in gunler and bolge_bul(t.ilce))
+
     uyarilar = []
     if atamalar:
         uyarilar.append(f"{len(atamalar)} teslimat {gun_sayisi} güne planlandı")
@@ -734,12 +761,20 @@ def haftalik_plan():
     if bolgesiz:
         uyarilar.append(f"{bolgesiz} teslimat bölgesiz — ilçesi bir bölgeye eşlenmiyor")
 
+    yuklenemeyen = sigmayan + bolgesiz_list
+    panel = {
+        "toplam": len(atamalar) + kesin_yerlesik + len(yuklenemeyen),
+        "yerlesik": len(atamalar) + kesin_yerlesik,
+        "yuklenemeyen": yuklenemeyen,
+    }
+
     return jsonify({
         "baslangic": str(baslangic),
         "gun_sayisi": gun_sayisi,
         "gunler": gun_ciktisi,
         "sigmayanlar": sigmayan,
         "bolgesiz": bolgesiz,
+        "panel": panel,
         "ozet": {"planlanan": len(atamalar), "sigmayan": len(sigmayan)},
         "uyarilar": uyarilar,
     })

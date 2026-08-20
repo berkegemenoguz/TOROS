@@ -45,6 +45,27 @@
   .cip-alt { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
   .gun-bos { flex: 1; font-size: 12px; color: var(--text-muted); align-self: center; }
   .plan-bos { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 14px; }
+
+  /* --- Ozet panel (haftalik planin altinda) --- */
+  .panel-ozet { margin-top: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+  .panel-baslik { font-size: 13px; font-weight: 700; color: var(--text-2); margin-bottom: 12px; }
+  .poz-satir { display: flex; gap: 12px; flex-wrap: wrap; }
+  .poz-kart { flex: 1; min-width: 150px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; text-align: center; }
+  .poz-sayi { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1.1; }
+  .poz-etiket { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .yuk-liste { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+  .yuk-item { position: relative; font-size: 12px; background: var(--uyari-bg); color: var(--uyari-text); border-radius: var(--radius); padding: 5px 9px; cursor: help; }
+  .yuk-pop {
+    position: absolute; bottom: 132%; left: 0; z-index: 30; width: 270px;
+    background: var(--surface-3); color: var(--text); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 12px; font-size: 12px; line-height: 1.5;
+    box-shadow: 0 10px 28px rgba(0,0,0,.45); opacity: 0; visibility: hidden;
+    transition: opacity .12s; pointer-events: none; text-align: left; white-space: normal;
+  }
+  .yuk-item:hover .yuk-pop { opacity: 1; visibility: visible; }
+  .yuk-pop .yp-neden { color: var(--amber); font-weight: 700; margin-bottom: 4px; }
+  .yuk-pop .yp-meta { color: var(--text-2); margin-top: 5px; }
+  .yuk-bos { font-size: 12px; color: var(--text-muted); margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -84,6 +105,25 @@
   </div>
 
   <div class="gunler" id="gunler"><div class="plan-bos">Yükleniyor…</div></div>
+
+  <div class="panel-ozet" id="panel-ozet">
+    <div class="panel-baslik">Teslimat Özeti</div>
+    <div class="poz-satir">
+      <div class="poz-kart">
+        <div class="poz-sayi" id="poz-toplam">–</div>
+        <div class="poz-etiket">Toplam teslimat</div>
+      </div>
+      <div class="poz-kart">
+        <div class="poz-sayi" id="poz-yerlesik" style="color:var(--teal);">–</div>
+        <div class="poz-etiket">Haftalık plana yerleşen</div>
+      </div>
+      <div class="poz-kart">
+        <div class="poz-sayi" id="poz-yuk" style="color:var(--amber);">–</div>
+        <div class="poz-etiket" id="poz-yuk-etiket">Yüklenemeyen</div>
+      </div>
+    </div>
+    <div class="yuk-liste" id="yuk-liste"></div>
+  </div>
 </div>
 
 <script>
@@ -164,6 +204,49 @@ function takvimCiz(veri) {
       + '</div>' + icerik + '</div>';
   });
   document.getElementById('gunler').innerHTML = html || '<div class="plan-bos">Plan yok</div>';
+  panelCiz(veri.panel);
+}
+
+function kacisli(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function panelCiz(panel) {
+  if (!panel) return;
+  document.getElementById('poz-toplam').textContent = panel.toplam != null ? panel.toplam : '–';
+  document.getElementById('poz-yerlesik').textContent = panel.yerlesik != null ? panel.yerlesik : '–';
+  var liste = document.getElementById('yuk-liste');
+  var etiket = document.getElementById('poz-yuk-etiket');
+  var sayi = document.getElementById('poz-yuk');
+
+  if (Array.isArray(panel.yuklenemeyen)) {
+    // Haftalik Planla sonrasi: nedenli liste
+    etiket.textContent = 'Yüklenemeyen';
+    sayi.textContent = panel.yuklenemeyen.length;
+    if (!panel.yuklenemeyen.length) {
+      liste.innerHTML = '<div class="yuk-bos">✓ Tüm teslimatlar haftalık plana yerleşti.</div>';
+      return;
+    }
+    liste.innerHTML = panel.yuklenemeyen.map(function(t) {
+      var bolgeSat = (t.bolge && t.bolge !== '—')
+        ? '<div class="yp-meta">Bölge: ' + kacisli(t.bolge) + '</div>' : '';
+      var terminSat = t.termin ? '<div class="yp-meta">Termin: ' + kacisli(t.termin) + '</div>' : '';
+      return '<span class="yuk-item">' + kacisli(t.adi || ('#' + t.id))
+        + '<span class="yuk-pop">'
+        +   '<div class="yp-neden">' + kacisli(t.kategori || 'yerleştirilemedi') + '</div>'
+        +   '<div>' + kacisli(t.aciklama || '') + '</div>'
+        +   bolgeSat + terminSat
+        + '</span></span>';
+    }).join('');
+  } else {
+    // Acilis (plan_durum): nedenler henuz hesaplanmadi
+    etiket.textContent = 'Henüz planlanmadı';
+    sayi.textContent = panel.bekleyen != null ? panel.bekleyen : '–';
+    liste.innerHTML = panel.bekleyen
+      ? '<div class="yuk-bos">Nedenleriyle görmek için “Haftalık Planla”ya bas.</div>' : '';
+  }
 }
 
 function planDurumYukle() {
